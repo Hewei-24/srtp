@@ -1,89 +1,165 @@
-# app.py - 修复API路由版本
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import datetime
-import requests
-import cv2
-import numpy as np
+"""
+大学生心理分析数字人代理 - 主服务器
+=====================================
+
+本模块提供基于 Flask 的 Web 服务，集成以下功能：
+1. DeepSeek API 心理咨询服务
+2. DeepFace 面部表情识别
+3. 对话历史管理
+4. RESTful API 接口
+
+作者: SRTP 项目组
+版本: 2.0
+"""
+
+import os
 import base64
 import logging
-import json
+import datetime
+import subprocess
+import uuid
+import glob
+from typing import Dict, Any, Optional
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
+import cv2
+import numpy as np
+import requests
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+
+# ==================== 日志配置 ====================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# 尝试导入deepface
+# ==================== DeepFace 导入 ====================
 try:
     from deepface import DeepFace
     DEEPFACE_AVAILABLE = True
+    logger.info("DeepFace 库加载成功")
 except ImportError:
     DEEPFACE_AVAILABLE = False
-    print("警告: deepface 库未安装。请运行: pip install deepface")
+    logger.warning("DeepFace 库未安装，表情识别功能不可用。请运行: pip install deepface")
 
+# ==================== Flask 应用初始化 ====================
 app = Flask(__name__, static_folder='.', static_url_path='')
-CORS(app)
+CORS(app)  # 启用跨域支持
 
-# DeepSeek API配置 - 请确保这是有效的API密钥
-DEEPSEEK_API_KEY = "sk-215440b00f1d426fb21a2f11eef6cf02"
+# ==================== 配置常量 ====================
+# DeepSeek API 配置（建议使用环境变量存储密钥）
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "sk-215440b00f1d426fb21a2f11eef6cf02")
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 
-# 情绪映射
-EMOTION_ICONS = {
-    'angry': '😠', 'disgust': '🤢', 'fear': '😨', 'happy': '😊',
-    'sad': '😢', 'surprise': '😲', 'neutral': '😐'
-}
-EMOTION_DESCRIPTIONS = {
-    'angry': '生气', 'disgust': '厌恶', 'fear': '恐惧', 'happy': '开心',
-    'sad': '悲伤', 'surprise': '惊讶', 'neutral': '平静'
+# TTS API 配置 (SiliconFlow)
+TTS_API_URL = "https://api.siliconflow.cn/v1/audio/speech"
+TTS_API_TOKEN = "sk-lvtuhfndddcmdyvnjtbzjuobfoewylsnqaqwfsnuznpilhkp"
+
+# SadTalker 配置
+SADTALKER_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SadTalker")
+SADTALKER_IMAGE = os.path.join(SADTALKER_DIR, "my_photo.png")  # 数字人图片
+SADTALKER_OUTPUT_DIR = os.path.join(SADTALKER_DIR, "results")
+AUDIO_OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_output")
+
+# 确保输出目录存在
+os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
+os.makedirs(SADTALKER_OUTPUT_DIR, exist_ok=True)
+
+# 情绪映射表
+EMOTION_MAP = {
+    'angry':    {'icon': '😠', 'name': '生气', 'context': '有些生气'},
+    'disgust':  {'icon': '🤢', 'name': '厌恶', 'context': '有些反感'},
+    'fear':     {'icon': '😨', 'name': '恐惧', 'context': '感到紧张'},
+    'happy':    {'icon': '😊', 'name': '开心', 'context': '看起来心情不错'},
+    'sad':      {'icon': '😢', 'name': '悲伤', 'context': '情绪有些低落'},
+    'surprise': {'icon': '😲', 'name': '惊讶', 'context': '有些惊讶'},
+    'neutral':  {'icon': '😐', 'name': '平静', 'context': '情绪平稳'}
 }
 
-# 对话历史
-conversation_history = []
+# 默认情绪分数（当检测失败时使用）
+DEFAULT_EMOTION_SCORES = {
+    'angry': 0.0, 'disgust': 0.0, 'fear': 0.0,
+    'happy': 0.0, 'sad': 0.0, 'surprise': 0.0, 'neutral': 100.0
+}
 
+# 对话历史（全局变量）
+conversation_history: list = []
+
+
+# ==================== 心理分析代理类 ====================
 class PsychologicalAgent:
-    """心理分析代理"""
-    def __init__(self, api_key):
+    """
+    心理分析代理类
+
+    负责与 DeepSeek API 交互，提供心理咨询服务。
+    支持多轮对话，结合用户情绪状态生成个性化回复。
+    """
+
+    def __init__(self, api_key: str):
+        """
+        初始化心理分析代理
+
+        Args:
+            api_key: DeepSeek API 密钥
+        """
         self.api_key = api_key
-        
-    def analyze_with_deepseek(self, user_input, emotion="neutral"):
-        """使用DeepSeek API分析"""
-        try:
-            # 构建情绪上下文
-            emotion_context = {
-                'happy': '看起来心情不错',
-                'sad': '情绪有些低落',
-                'angry': '有些生气',
-                'fear': '感到紧张',
-                'neutral': '情绪平稳',
-                'surprise': '有些惊讶',
-                'disgust': '有些反感'
-            }.get(emotion, '情绪平稳')
-            
-            # 构建系统提示
-            system_prompt = f"""你是一名专业的大学心理健康顾问，专门帮助大学生解决心理问题。
-            
+        self.api_url = DEEPSEEK_API_URL
+
+    def _build_system_prompt(self, emotion: str) -> str:
+        """
+        构建系统提示词
+
+        Args:
+            emotion: 检测到的情绪类型
+
+        Returns:
+            包含情绪上下文的系统提示词
+        """
+        emotion_info = EMOTION_MAP.get(emotion, EMOTION_MAP['neutral'])
+        emotion_context = emotion_info['context']
+
+        return f"""你是一名专业的大学心理健康顾问，专门帮助大学生解决心理问题。
+
 重要上下文信息：
 - 系统检测到用户当前的情绪状态为：{emotion} ({emotion_context})
 - 这个情绪信息来自实时面部表情分析
 - 请结合用户描述的文字内容和检测到的情绪状态，提供更精准的心理分析
 
+你的职责：
+1. 分析学生的心理状态和情绪问题
+2. 提供专业、温暖的心理支持和建议
+3. 识别危机情况并给出适当建议
+4. 用同理心和理解来回应用户
+
 请以温暖、专业、支持性的语气回应，避免使用专业术语，用通俗易懂的语言提供建议。"""
-            
-            # 构建消息
-            messages = [{"role": "system", "content": system_prompt}]
-            
-            # 添加最近的对话历史（最多3轮）
+
+    def analyze(self, user_input: str, emotion: str = "neutral") -> Dict[str, Any]:
+        """
+        分析用户输入并生成心理咨询回复
+
+        Args:
+            user_input: 用户输入的文本
+            emotion: 检测到的情绪类型，默认为 neutral
+
+        Returns:
+            包含分析结果的字典，包括 success、response、model_source 等字段
+        """
+        try:
+            # 构建消息列表
+            messages = [{"role": "system", "content": self._build_system_prompt(emotion)}]
+
+            # 添加最近的对话历史（最多 3 轮，即 6 条消息）
             if conversation_history:
-                recent_history = conversation_history[-6:]  # 最近3轮对话
-                messages.extend(recent_history)
-            
+                messages.extend(conversation_history[-6:])
+
             messages.append({"role": "user", "content": user_input})
-            
-            logger.info(f"调用DeepSeek API，情绪: {emotion}, 输入: {user_input[:50]}...")
-            
+
+            logger.info(f"调用 DeepSeek API - 情绪: {emotion}, 输入: {user_input[:50]}...")
+
+            # 调用 API
             response = requests.post(
-                DEEPSEEK_API_URL,
+                self.api_url,
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {self.api_key}"
@@ -91,40 +167,36 @@ class PsychologicalAgent:
                 json={
                     "model": "deepseek-chat",
                     "messages": messages,
-                    "temperature": 0.7,
-                    "max_tokens": 800,
+                    "temperature": 0.7,  # 控制回复的随机性
+                    "max_tokens": 800,   # 限制回复长度
                     "stream": False
                 },
                 timeout=30
             )
-            
+
+            # 处理响应
             if response.status_code == 200:
                 result = response.json()
                 assistant_response = result['choices'][0]['message']['content']
-                
+
                 # 更新对话历史
-                conversation_history.append({"role": "user", "content": user_input})
-                conversation_history.append({"role": "assistant", "content": assistant_response})
-                
-                # 限制历史记录长度
-                if len(conversation_history) > 10:
-                    conversation_history[:] = conversation_history[-10:]
-                
+                self._update_history(user_input, assistant_response)
+
                 return {
                     "success": True,
                     "response": assistant_response,
                     "model_source": "deepseek_api"
                 }
             else:
-                logger.error(f"API调用失败: {response.status_code} - {response.text[:200]}")
+                logger.error(f"API 调用失败: {response.status_code} - {response.text[:200]}")
                 return {
                     "success": False,
-                    "error": f"API错误: {response.status_code}",
-                    "response": "抱歉，AI服务暂时不可用，请稍后再试。"
+                    "error": f"API 错误: {response.status_code}",
+                    "response": "抱歉，AI 服务暂时不可用，请稍后再试。"
                 }
-                
+
         except requests.exceptions.Timeout:
-            logger.error("API请求超时")
+            logger.error("API 请求超时")
             return {
                 "success": False,
                 "error": "请求超时",
@@ -138,313 +210,145 @@ class PsychologicalAgent:
                 "response": "系统暂时出现问题，请稍后再试。"
             }
 
-# 初始化Agent
-agent = PsychologicalAgent(DEEPSEEK_API_KEY)
-
-@app.route('/')
-def index():
-    """提供前端页面"""
-    try:
-        with open('index.html', 'r', encoding='utf-8') as f:
-            return f.read()
-    except FileNotFoundError:
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>大学生心理分析数字人代理</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 40px; text-align: center; }
-                h1 { color: #4a90e2; }
-                .status { padding: 20px; margin: 20px auto; max-width: 600px; border-radius: 10px; }
-                .success { background: #d4edda; color: #155724; }
-                .warning { background: #fff3cd; color: #856404; }
-                .error { background: #f8d7da; color: #721c24; }
-            </style>
-        </head>
-        <body>
-            <h1>大学生心理分析数字人代理</h1>
-            <div class="status success">
-                <h3>系统正在运行</h3>
-                <p>API服务正常，但index.html文件未找到</p>
-                <p>请确保index.html文件与app.py在同一目录</p>
-                <p>API测试：<a href="/api/health">/api/health</a></p>
-            </div>
-        </body>
-        </html>
+    def _update_history(self, user_input: str, assistant_response: str) -> None:
         """
+        更新对话历史
 
-# 前端需要的API端点 - 必须与index.html中的调用匹配
-@app.route('/api/analyze', methods=['POST'])
-def analyze():
-    """通用分析接口 - 前端主要调用这个"""
-    try:
-        data = request.get_json()
-        user_input = data.get('message', '').strip()
-        detected_emotion = data.get('detected_emotion', 'neutral')
-        
-        logger.info(f"收到分析请求 - 情绪: {detected_emotion}")
-        
-        if not user_input:
-            return jsonify({
-                "success": False,
-                "error": "输入不能为空"
-            }), 400
-        
-        # 使用DeepSeek API
-        result = agent.analyze_with_deepseek(user_input, detected_emotion)
-        
-        if result["success"]:
-            result["detected_emotion"] = detected_emotion
-            result["model_source"] = result.get("model_source", "deepseek_api")
-            result["timestamp"] = datetime.datetime.now().isoformat()
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        logger.error(f"分析接口错误: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"服务器错误: {str(e)}"
-        }), 500
+        Args:
+            user_input: 用户输入
+            assistant_response: AI 回复
+        """
+        conversation_history.append({"role": "user", "content": user_input})
+        conversation_history.append({"role": "assistant", "content": assistant_response})
 
-@app.route('/api/analyze_local', methods=['POST'])
-def analyze_local():
-    """本地分析接口 - 前端会调用这个"""
-    try:
-        data = request.get_json()
-        user_input = data.get('message', '').strip()
-        detected_emotion = data.get('detected_emotion', 'neutral')
-        
-        logger.info(f"收到本地分析请求 - 情绪: {detected_emotion}")
-        
-        if not user_input:
-            return jsonify({
-                "success": False,
-                "error": "输入不能为空"
-            }), 400
-        
-        # 直接使用DeepSeek API（本地模型不可用时）
-        result = agent.analyze_with_deepseek(user_input, detected_emotion)
-        
-        if result["success"]:
-            result["detected_emotion"] = detected_emotion
-            result["model_source"] = "deepseek_api"  # 标记为API
-            result["timestamp"] = datetime.datetime.now().isoformat()
-        else:
-            # 如果API失败，使用备选回复
-            result = generate_fallback_response_data(user_input, detected_emotion)
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        logger.error(f"本地分析接口错误: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"服务器错误: {str(e)}"
-        }), 500
+        # 限制历史记录长度（保留最近 10 条）
+        if len(conversation_history) > 10:
+            conversation_history[:] = conversation_history[-10:]
 
-@app.route('/api/analyze_emotion', methods=['POST'])
-def analyze_emotion():
-    """分析表情接口"""
-    try:
-        data = request.get_json()
-        if not data or 'image' not in data:
-            return jsonify({
-                "success": False,
-                "error": "没有提供图片数据"
-            }), 400
-        
-        logger.info("收到表情分析请求")
-        
-        emotion_result = analyze_emotion_from_image(data['image'])
-        
-        return jsonify({
-            "success": True,
-            "dominant_emotion": emotion_result["dominant_emotion"],
-            "emotion_scores": emotion_result["emotion_scores"],
-            "face_detected": emotion_result.get("face_detected", False),
-            "timestamp": datetime.datetime.now().isoformat()
-        })
-        
-    except Exception as e:
-        logger.error(f"表情分析接口错误: {str(e)}")
-        # 确保返回的值都是JSON可序列化的
-        return jsonify({
-            "success": False,
-            "error": str(e),
-            "dominant_emotion": "neutral",
-            "emotion_scores": {
-                "angry": 0.0, "disgust": 0.0, "fear": 0.0,
-                "happy": 0.0, "sad": 0.0, "surprise": 0.0, "neutral": 100.0
-            },
-            "face_detected": False
-        }), 500
 
-@app.route('/api/model/status', methods=['GET'])
-def model_status():
-    """模型状态接口 - 前端会调用这个"""
-    return jsonify({
-        "local_model_loaded": False,  # 暂时设为False
-        "model_loading": False,
-        "deepface_available": DEEPFACE_AVAILABLE,
-        "deepseek_api_available": True,
-        "timestamp": datetime.datetime.now().isoformat()
-    })
+# ==================== 表情识别模块 ====================
+def analyze_emotion_from_image(image_data: str) -> Dict[str, Any]:
+    """
+    从 Base64 编码的图像中分析面部表情
 
-@app.route('/api/model_status', methods=['GET'])
-def model_status_alt():
-    """模型状态接口的另一种路由"""
-    return model_status()
+    Args:
+        image_data: Base64 编码的图像数据
 
-@app.route('/api/status', methods=['GET'])
-def api_status():
-    """API状态检查"""
-    try:
-        # 测试API连接
-        api_test_result = test_deepseek_api()
-        
-        return jsonify({
-            "status": "healthy" if api_test_result.get("success") else "warning",
-            "deepseek_api": api_test_result,
-            "deepface_available": DEEPFACE_AVAILABLE,
-            "timestamp": datetime.datetime.now().isoformat()
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": f"状态检查失败: {str(e)}",
-            "timestamp": datetime.datetime.now().isoformat()
-        })
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """健康检查"""
-    return jsonify({
-        "status": "healthy",
-        "service": "大学生心理分析数字人代理",
-        "version": "2.0",
-        "timestamp": datetime.datetime.now().isoformat(),
-        "features": {
-            "psychological_analysis": True,
-            "emotion_recognition": DEEPFACE_AVAILABLE,
-            "real_time_camera": True,
-            "deepseek_api": True
-        }
-    })
-
-# 辅助函数
-def analyze_emotion_from_image(image_data):
-    """分析图片中的情绪"""
+    Returns:
+        包含情绪分析结果的字典，包括 dominant_emotion、emotion_scores、face_detected
+    """
+    # 检查 DeepFace 是否可用
     if not DEEPFACE_AVAILABLE:
+        logger.warning("DeepFace 库不可用，返回默认情绪")
         return {
             "dominant_emotion": "neutral",
-            "emotion_scores": {
-                "angry": 0.0, "disgust": 0.0, "fear": 0.0,
-                "happy": 0.0, "sad": 0.0, "surprise": 0.0, "neutral": 100.0
-            },
+            "emotion_scores": DEFAULT_EMOTION_SCORES.copy(),
             "face_detected": False
         }
-    
+
+    logger.info("开始 DeepFace 表情分析...")
+
     try:
-        # 解码Base64图片
+        # 解码 Base64 图像
         if ',' in image_data:
             image_data = image_data.split(',')[1]
-        
+
         img_bytes = base64.b64decode(image_data)
         nparr = np.frombuffer(img_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
+
         if img is None:
+            logger.warning("图像解码失败")
             return {
                 "dominant_emotion": "neutral",
-                "emotion_scores": {
-                    "angry": 0.0, "disgust": 0.0, "fear": 0.0,
-                    "happy": 0.0, "sad": 0.0, "surprise": 0.0, "neutral": 100.0
-                },
+                "emotion_scores": DEFAULT_EMOTION_SCORES.copy(),
                 "face_detected": False
             }
-        
-        # 使用DeepFace分析
-        try:
-            analysis = DeepFace.analyze(
-                img, 
-                actions=['emotion'], 
-                detector_backend='opencv',
-                enforce_detection=False,
-                silent=True
-            )
-            
-            if analysis is None or len(analysis) == 0:
-                return {
-                    "dominant_emotion": "neutral",
-                    "emotion_scores": {
-                        "angry": 0.0, "disgust": 0.0, "fear": 0.0,
-                        "happy": 0.0, "sad": 0.0, "surprise": 0.0, "neutral": 100.0
-                    },
-                    "face_detected": False
-                }
-            
-            dominant_emotion = analysis[0]['dominant_emotion']
-            emotion_scores = analysis[0]['emotion']
-            
-            # 关键修复：将float32转换为Python float
-            converted_scores = {}
-            for emotion, score in emotion_scores.items():
-                # 确保所有值都是Python float类型
-                converted_scores[emotion] = float(score)
-            
-            return {
-                "dominant_emotion": dominant_emotion,
-                "emotion_scores": converted_scores,
-                "face_detected": True
-            }
-            
-        except Exception as e:
-            logger.warning(f"DeepFace分析失败: {str(e)[:100]}")
+
+        # 使用 DeepFace 分析表情
+        analysis = DeepFace.analyze(
+            img,
+            actions=['emotion'],
+            detector_backend='opencv',  # 使用 OpenCV 检测器（速度快）
+            enforce_detection=False,    # 不强制检测到人脸
+            silent=True                 # 静默模式
+        )
+
+        if not analysis:
+            logger.warning("DeepFace 返回空结果")
             return {
                 "dominant_emotion": "neutral",
-                "emotion_scores": {
-                    "angry": 0.0, "disgust": 0.0, "fear": 0.0,
-                    "happy": 0.0, "sad": 0.0, "surprise": 0.0, "neutral": 100.0
-                },
+                "emotion_scores": DEFAULT_EMOTION_SCORES.copy(),
                 "face_detected": False
             }
-        
+
+        # 提取结果
+        dominant_emotion = analysis[0]['dominant_emotion']
+        emotion_scores = analysis[0]['emotion']
+
+        # 检查是否真正检测到人脸（通过检查 face_confidence 或 region）
+        face_region = analysis[0].get('region', {})
+        face_confidence = analysis[0].get('face_confidence', 0)
+
+        # 记录详细的分析结果用于调试
+        logger.info(f"表情分析结果: dominant={dominant_emotion}, scores={emotion_scores}")
+        logger.info(f"人脸区域: {face_region}, 置信度: {face_confidence}")
+
+        # 转换为 Python float 类型（避免 JSON 序列化问题）
+        converted_scores = {k: float(v) for k, v in emotion_scores.items()}
+
+        # 判断是否真正检测到人脸
+        # 如果人脸区域太小或置信度太低，可能是误检
+        face_detected = True
+        if face_region:
+            w = face_region.get('w', 0)
+            h = face_region.get('h', 0)
+            # 如果检测到的人脸区域太小（小于50x50像素），认为没有检测到有效人脸
+            if w < 50 or h < 50:
+                logger.warning(f"检测到的人脸区域太小: {w}x{h}")
+                face_detected = False
+
+        return {
+            "dominant_emotion": dominant_emotion,
+            "emotion_scores": converted_scores,
+            "face_detected": face_detected
+        }
+
     except Exception as e:
-        logger.error(f"情绪分析过程出错: {str(e)}")
+        logger.warning(f"表情分析失败: {str(e)[:100]}")
         return {
             "dominant_emotion": "neutral",
-            "emotion_scores": {
-                "angry": 0.0, "disgust": 0.0, "fear": 0.0,
-                "happy": 0.0, "sad": 0.0, "surprise": 0.0, "neutral": 100.0
-            },
+            "emotion_scores": DEFAULT_EMOTION_SCORES.copy(),
             "face_detected": False
         }
 
-def generate_fallback_response_data(user_input, emotion):
-    """生成备选回复数据"""
-    emotion_context = {
-        'happy': '看起来您心情不错',
-        'sad': '感受到您的低落情绪',
-        'angry': '理解您的烦躁',
-        'fear': '感受到您的紧张',
-        'neutral': ''
-    }.get(emotion, '')
-    
-    if emotion_context:
-        emotion_context += "，"
-    
-    # 关键词匹配
+
+def generate_fallback_response(user_input: str, emotion: str) -> Dict[str, Any]:
+    """
+    生成备选回复（当 API 不可用时使用）
+
+    Args:
+        user_input: 用户输入
+        emotion: 检测到的情绪
+
+    Returns:
+        包含备选回复的字典
+    """
+    emotion_info = EMOTION_MAP.get(emotion, EMOTION_MAP['neutral'])
+    emotion_prefix = f"{emotion_info['context']}，" if emotion != 'neutral' else ""
+
+    # 关键词匹配回复
     keyword_responses = {
-        '压力': f"{emotion_context}对于压力问题，建议：<br>1. 深呼吸放松练习<br>2. 合理安排时间和优先级<br>3. 适量运动释放压力<br>4. 与朋友或家人倾诉",
-        '焦虑': f"{emotion_context}应对焦虑的方法：<br>1. 正念冥想练习<br>2. 写下担忧事项<br>3. 渐进式肌肉放松<br>4. 保持规律作息",
-        '失眠': f"{emotion_context}改善睡眠的建议：<br>1. 睡前1小时不使用电子设备<br>2. 创造舒适的睡眠环境<br>3. 保持规律的作息时间<br>4. 避免睡前摄入咖啡因"
+        '压力': f"{emotion_prefix}对于压力问题，建议：<br>1. 深呼吸放松练习<br>2. 合理安排时间和优先级<br>3. 适量运动释放压力<br>4. 与朋友或家人倾诉",
+        '焦虑': f"{emotion_prefix}应对焦虑的方法：<br>1. 正念冥想练习<br>2. 写下担忧事项<br>3. 渐进式肌肉放松<br>4. 保持规律作息",
+        '失眠': f"{emotion_prefix}改善睡眠的建议：<br>1. 睡前1小时不使用电子设备<br>2. 创造舒适的睡眠环境<br>3. 保持规律的作息时间<br>4. 避免睡前摄入咖啡因",
+        '抑郁': f"{emotion_prefix}如果持续情绪低落：<br>1. 寻求专业心理咨询<br>2. 保持适度的社交活动<br>3. 坚持适量运动<br>4. 给自己一些时间和耐心",
+        '学习': f"{emotion_prefix}学习压力管理：<br>1. 制定合理的学习计划<br>2. 使用番茄工作法提高效率<br>3. 保证充足的休息时间<br>4. 与同学交流学习心得"
     }
-    
-    lower_input = user_input.lower()
+
+    # 查找匹配的关键词
     for keyword, response in keyword_responses.items():
-        if keyword in lower_input:
+        if keyword in user_input.lower():
             return {
                 "success": True,
                 "response": response,
@@ -452,19 +356,24 @@ def generate_fallback_response_data(user_input, emotion):
                 "model_source": "fallback_system",
                 "timestamp": datetime.datetime.now().isoformat()
             }
-    
-    generic_response = f"{emotion_context}我理解您的困扰。作为心理助手，我建议您可以更详细地描述具体情况和感受，这样我能提供更有针对性的帮助。"
-    
+
+    # 通用回复
     return {
         "success": True,
-        "response": generic_response,
+        "response": f"{emotion_prefix}我理解您的困扰。作为心理助手，我建议您可以更详细地描述具体情况和感受，这样我能提供更有针对性的帮助。",
         "detected_emotion": emotion,
         "model_source": "fallback_system",
         "timestamp": datetime.datetime.now().isoformat()
     }
 
-def test_deepseek_api():
-    """测试DeepSeek API连接"""
+
+def test_deepseek_api() -> Dict[str, Any]:
+    """
+    测试 DeepSeek API 连接状态
+
+    Returns:
+        包含测试结果的字典
+    """
     try:
         response = requests.post(
             DEEPSEEK_API_URL,
@@ -479,40 +388,499 @@ def test_deepseek_api():
             },
             timeout=10
         )
-        
+
         if response.status_code == 200:
-            return {"success": True, "message": "API连接正常"}
+            return {"success": True, "message": "API 连接正常"}
         elif response.status_code == 401:
-            return {"success": False, "message": "API密钥无效"}
+            return {"success": False, "message": "API 密钥无效"}
         else:
-            return {"success": False, "message": f"API返回错误: {response.status_code}"}
-            
+            return {"success": False, "message": f"API 返回错误: {response.status_code}"}
+
     except requests.exceptions.Timeout:
-        return {"success": False, "message": "API连接超时"}
+        return {"success": False, "message": "API 连接超时"}
     except Exception as e:
-        return {"success": False, "message": f"API连接失败: {str(e)}"}
+        return {"success": False, "message": f"API 连接失败: {str(e)}"}
+
+
+# ==================== TTS 文字转语音模块 ====================
+def text_to_speech(text: str) -> Dict[str, Any]:
+    """
+    将文字转换为语音 MP3 文件
+
+    Args:
+        text: 要转换的文字内容
+
+    Returns:
+        包含音频文件路径的字典
+    """
+    try:
+        # 生成唯一文件名
+        audio_filename = f"tts_{uuid.uuid4().hex[:8]}.mp3"
+        audio_path = os.path.join(AUDIO_OUTPUT_DIR, audio_filename)
+
+        logger.info(f"开始 TTS 转换，文本长度: {len(text)}")
+
+        # 调用 SiliconFlow TTS API
+        request_data = {
+            "model": "IndexTeam/IndexTTS-2",
+            "voice": "IndexTeam/IndexTTS-2:claire",
+            "stream": True,
+            "input": text,
+            "max_tokens": 1600,
+            "response_format": "mp3",
+            "speed": 1,
+            "gain": 0
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f"Bearer {TTS_API_TOKEN}"
+        }
+
+        response = requests.post(
+            url=TTS_API_URL,
+            json=request_data,
+            headers=headers,
+            timeout=60
+        )
+
+        if response.status_code != 200:
+            logger.error(f"TTS API 错误: {response.status_code} - {response.text[:200]}")
+            return {"success": False, "error": f"TTS API 错误: {response.status_code}"}
+
+        # 保存音频文件
+        with open(audio_path, 'wb') as f:
+            f.write(response.content)
+
+        logger.info(f"TTS 转换成功，保存到: {audio_path}")
+        return {
+            "success": True,
+            "audio_path": audio_path,
+            "audio_filename": audio_filename
+        }
+
+    except requests.exceptions.Timeout:
+        logger.error("TTS API 请求超时")
+        return {"success": False, "error": "TTS 请求超时"}
+    except Exception as e:
+        logger.error(f"TTS 转换失败: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+
+# ==================== SadTalker 视频生成模块 ====================
+def generate_talking_video(audio_path: str) -> Dict[str, Any]:
+    """
+    使用 SadTalker 生成数字人说话视频
+
+    Args:
+        audio_path: 音频文件的绝对路径
+
+    Returns:
+        包含视频文件路径的字典
+    """
+    try:
+        # 检查文件是否存在
+        if not os.path.exists(SADTALKER_IMAGE):
+            logger.error(f"数字人图片不存在: {SADTALKER_IMAGE}")
+            return {"success": False, "error": "数字人图片不存在"}
+
+        if not os.path.exists(audio_path):
+            logger.error(f"音频文件不存在: {audio_path}")
+            return {"success": False, "error": "音频文件不存在"}
+
+        logger.info("开始生成数字人视频...")
+        logger.info(f"图片: {SADTALKER_IMAGE}")
+        logger.info(f"音频: {audio_path}")
+
+        # 检测 SadTalker 目录下的虚拟环境
+        sadtalker_venv_python = os.path.join(SADTALKER_DIR, ".venv", "Scripts", "python.exe")
+
+        if os.path.exists(sadtalker_venv_python):
+            python_exec = sadtalker_venv_python
+            logger.info(f"使用 SadTalker 虚拟环境: {sadtalker_venv_python}")
+        else:
+            python_exec = "python"
+            logger.warning("未检测到 SadTalker/.venv，使用默认 Python")
+
+        # 构建 SadTalker 命令
+        cmd = [
+            python_exec, "inference.py",
+            "--driven_audio", audio_path,
+            "--source_image", SADTALKER_IMAGE,
+            "--result_dir", SADTALKER_OUTPUT_DIR,
+            # "--still",
+            "--preprocess", "crop",
+            # "--enhancer", "gfpgan",
+            "--batch_size", "4"
+        ]
+
+        # 在 SadTalker 目录下执行
+        process = subprocess.Popen(
+            cmd,
+            cwd=SADTALKER_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+
+        # 读取输出
+        output_lines = []
+        for line in process.stdout:
+            output_lines.append(line)
+            logger.info(f"SadTalker: {line.strip()}")
+
+        process.wait()
+
+        if process.returncode != 0:
+            logger.error(f"SadTalker 执行失败，返回码: {process.returncode}")
+            return {"success": False, "error": "视频生成失败"}
+
+        # 查找生成的视频文件（最新的 mp4 文件）
+        video_pattern = os.path.join(SADTALKER_OUTPUT_DIR, "**", "*.mp4")
+        video_files = glob.glob(video_pattern, recursive=True)
+
+        if not video_files:
+            logger.error("未找到生成的视频文件")
+            return {"success": False, "error": "未找到生成的视频"}
+
+        # 获取最新的视频文件
+        latest_video = max(video_files, key=os.path.getmtime)
+        video_filename = os.path.basename(latest_video)
+
+        logger.info(f"视频生成成功: {latest_video}")
+        return {
+            "success": True,
+            "video_path": latest_video,
+            "video_filename": video_filename
+        }
+
+    except Exception as e:
+        logger.error(f"视频生成失败: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+
+# ==================== 初始化代理实例 ====================
+agent = PsychologicalAgent(DEEPSEEK_API_KEY)
+
+
+# ==================== API 路由 ====================
+
+@app.route('/')
+def index():
+    """
+    首页路由 - 提供前端页面
+
+    Returns:
+        HTML 页面内容
+    """
+    try:
+        with open('index.html', 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head><title>大学生心理分析数字人代理</title></head>
+        <body style="font-family: Arial; padding: 40px; text-align: center;">
+            <h1 style="color: #4a90e2;">大学生心理分析数字人代理</h1>
+            <p>系统正在运行，但 index.html 文件未找到</p>
+            <p>API 测试：<a href="/api/health">/api/health</a></p>
+        </body>
+        </html>
+        """
+
+
+@app.route('/api/analyze', methods=['POST'])
+def analyze():
+    """
+    心理分析主接口（集成 TTS 和数字人视频生成）
+
+    请求体:
+        - message: 用户输入的文本
+        - detected_emotion: 检测到的情绪（可选）
+        - generate_video: 是否生成数字人视频（可选，默认 True）
+
+    Returns:
+        JSON 格式的分析结果，包含视频 URL
+    """
+    try:
+        data = request.get_json()
+        user_input = data.get('message', '').strip()
+        detected_emotion = data.get('detected_emotion', 'neutral')
+        generate_video = data.get('generate_video', True)
+
+        logger.info(f"收到分析请求 - 情绪: {detected_emotion}, 生成视频: {generate_video}")
+
+        if not user_input:
+            return jsonify({"success": False, "error": "输入不能为空"}), 400
+
+        # 调用心理分析代理
+        result = agent.analyze(user_input, detected_emotion)
+
+        if result["success"]:
+            result["detected_emotion"] = detected_emotion
+            result["timestamp"] = datetime.datetime.now().isoformat()
+
+            # 如果需要生成视频
+            if generate_video:
+                response_text = result.get("response", "")
+
+                # 清理 HTML 标签，只保留纯文本用于 TTS
+                import re
+                clean_text = re.sub(r'<[^>]+>', '', response_text)
+                clean_text = clean_text.replace('<br>', '。').replace('&nbsp;', ' ')
+
+                # 步骤1: TTS 文字转语音
+                logger.info("开始 TTS 转换...")
+                tts_result = text_to_speech(clean_text)
+
+                if tts_result["success"]:
+                    audio_path = tts_result["audio_path"]
+                    result["audio_url"] = f"/api/audio/{tts_result['audio_filename']}"
+
+                    # 步骤2: SadTalker 生成视频
+                    logger.info("开始生成数字人视频...")
+                    video_result = generate_talking_video(audio_path)
+
+                    if video_result["success"]:
+                        result["video_url"] = f"/api/video/{video_result['video_filename']}"
+                        result["video_generated"] = True
+                        logger.info(f"视频生成成功: {video_result['video_filename']}")
+                    else:
+                        result["video_generated"] = False
+                        result["video_error"] = video_result.get("error", "视频生成失败")
+                        logger.warning(f"视频生成失败: {video_result.get('error')}")
+                else:
+                    result["video_generated"] = False
+                    result["tts_error"] = tts_result.get("error", "TTS 转换失败")
+                    logger.warning(f"TTS 转换失败: {tts_result.get('error')}")
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"分析接口错误: {str(e)}")
+        return jsonify({"success": False, "error": f"服务器错误: {str(e)}"}), 500
+
+
+@app.route('/api/video/<filename>')
+def serve_video(filename):
+    """
+    提供视频文件服务
+
+    Args:
+        filename: 视频文件名
+
+    Returns:
+        视频文件
+    """
+    # 在 SadTalker 输出目录中查找视频
+    video_pattern = os.path.join(SADTALKER_OUTPUT_DIR, "**", filename)
+    video_files = glob.glob(video_pattern, recursive=True)
+
+    if video_files:
+        video_path = video_files[0]
+        directory = os.path.dirname(video_path)
+        return send_from_directory(directory, filename, mimetype='video/mp4')
+
+    logger.error(f"视频文件未找到: {filename}")
+    return jsonify({"error": "视频文件未找到"}), 404
+
+
+@app.route('/api/audio/<filename>')
+def serve_audio(filename):
+    """
+    提供音频文件服务
+
+    Args:
+        filename: 音频文件名
+
+    Returns:
+        音频文件
+    """
+    audio_path = os.path.join(AUDIO_OUTPUT_DIR, filename)
+
+    if os.path.exists(audio_path):
+        return send_from_directory(AUDIO_OUTPUT_DIR, filename, mimetype='audio/mpeg')
+
+    logger.error(f"音频文件未找到: {filename}")
+    return jsonify({"error": "音频文件未找到"}), 404
+
+
+@app.route('/api/analyze_local', methods=['POST'])
+def analyze_local():
+    """
+    本地模型分析接口（当前使用 DeepSeek API 作为后备）
+
+    请求体:
+        - message: 用户输入的文本
+        - detected_emotion: 检测到的情绪（可选）
+
+    Returns:
+        JSON 格式的分析结果
+    """
+    try:
+        data = request.get_json()
+        user_input = data.get('message', '').strip()
+        detected_emotion = data.get('detected_emotion', 'neutral')
+
+        logger.info(f"收到本地分析请求 - 情绪: {detected_emotion}")
+
+        if not user_input:
+            return jsonify({"success": False, "error": "输入不能为空"}), 400
+
+        # 尝试使用 DeepSeek API
+        result = agent.analyze(user_input, detected_emotion)
+
+        if result["success"]:
+            result["detected_emotion"] = detected_emotion
+            result["timestamp"] = datetime.datetime.now().isoformat()
+        else:
+            # API 失败时使用备选回复
+            result = generate_fallback_response(user_input, detected_emotion)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"本地分析接口错误: {str(e)}")
+        return jsonify({"success": False, "error": f"服务器错误: {str(e)}"}), 500
+
+
+@app.route('/api/analyze_emotion', methods=['POST'])
+def analyze_emotion():
+    """
+    表情识别接口
+
+    请求体:
+        - image: Base64 编码的图像数据
+
+    Returns:
+        JSON 格式的情绪分析结果
+    """
+    try:
+        data = request.get_json()
+
+        if not data or 'image' not in data:
+            return jsonify({"success": False, "error": "没有提供图片数据"}), 400
+
+        logger.info("收到表情分析请求")
+
+        # 分析表情
+        result = analyze_emotion_from_image(data['image'])
+
+        return jsonify({
+            "success": True,
+            "dominant_emotion": result["dominant_emotion"],
+            "emotion_scores": result["emotion_scores"],
+            "face_detected": result["face_detected"],
+            "timestamp": datetime.datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        logger.error(f"表情分析接口错误: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "dominant_emotion": "neutral",
+            "emotion_scores": DEFAULT_EMOTION_SCORES.copy(),
+            "face_detected": False
+        }), 500
+
+
+@app.route('/api/model/status', methods=['GET'])
+def model_status():
+    """
+    模型状态查询接口
+
+    Returns:
+        JSON 格式的模型状态信息
+    """
+    return jsonify({
+        "local_model_loaded": False,
+        "model_loading": False,
+        "deepface_available": DEEPFACE_AVAILABLE,
+        "deepseek_api_available": True,
+        "timestamp": datetime.datetime.now().isoformat()
+    })
+
+
+@app.route('/api/status', methods=['GET'])
+def api_status():
+    """
+    API 状态检查接口
+
+    Returns:
+        JSON 格式的 API 状态信息
+    """
+    api_test = test_deepseek_api()
+
+    return jsonify({
+        "status": "healthy" if api_test.get("success") else "warning",
+        "deepseek_api": api_test,
+        "deepface_available": DEEPFACE_AVAILABLE,
+        "timestamp": datetime.datetime.now().isoformat()
+    })
+
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """
+    健康检查接口
+
+    Returns:
+        JSON 格式的服务健康状态
+    """
+    return jsonify({
+        "status": "healthy",
+        "service": "大学生心理分析数字人代理",
+        "version": "2.0",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "features": {
+            "psychological_analysis": True,
+            "emotion_recognition": DEEPFACE_AVAILABLE,
+            "real_time_camera": True,
+            "deepseek_api": True
+        }
+    })
+
 
 @app.route('/api/conversation/summary', methods=['GET'])
 def get_conversation_summary():
-    """获取对话摘要"""
+    """
+    获取对话摘要
+
+    Returns:
+        JSON 格式的对话摘要信息
+    """
     user_messages = [msg['content'] for msg in conversation_history if msg['role'] == 'user']
-    
+
     return jsonify({
         "total_conversations": len(conversation_history) // 2,
         "recent_topics": user_messages[-3:] if user_messages else [],
         "timestamp": datetime.datetime.now().isoformat()
     })
 
+
 @app.route('/api/conversation/reset', methods=['POST'])
 def reset_conversation():
-    """重置对话"""
+    """
+    重置对话历史
+
+    Returns:
+        JSON 格式的操作结果
+    """
     global conversation_history
     conversation_history = []
+    logger.info("对话历史已重置")
     return jsonify({"success": True, "message": "对话已重置"})
+
 
 @app.route('/api/debug', methods=['GET'])
 def debug_info():
-    """调试信息"""
+    """
+    调试信息接口（仅用于开发）
+
+    Returns:
+        JSON 格式的调试信息
+    """
     return jsonify({
         "routes": [str(rule) for rule in app.url_map.iter_rules()],
         "conversation_length": len(conversation_history),
@@ -521,30 +889,40 @@ def debug_info():
         "timestamp": datetime.datetime.now().isoformat()
     })
 
-# 添加favicon.ico路由避免404错误
+
 @app.route('/favicon.ico')
 def favicon():
-    return '', 404
+    """处理 favicon 请求，避免 404 错误"""
+    return '', 204
 
+
+# ==================== 主程序入口 ====================
 if __name__ == '__main__':
+    # 打印启动信息
     print("=" * 60)
-    print("大学生心理分析数字人代理 - API路由修复版")
+    print("大学生心理分析数字人代理 v2.0")
     print("=" * 60)
     print(f"📱 服务地址: http://localhost:5000")
-    print(f"🔍 调试信息: http://localhost:5000/api/debug")
     print(f"❤️  健康检查: http://localhost:5000/api/health")
     print(f"📊 模型状态: http://localhost:5000/api/model/status")
+    print(f"🔍 调试信息: http://localhost:5000/api/debug")
+    print("=" * 60)
+    print("可用 API 端点:")
+    print("  POST /api/analyze        - 心理分析")
+    print("  POST /api/analyze_local  - 本地模型分析")
+    print("  POST /api/analyze_emotion - 表情识别")
+    print("  GET  /api/health         - 健康检查")
+    print("  GET  /api/model/status   - 模型状态")
+    print("  GET  /api/conversation/summary - 对话摘要")
+    print("  POST /api/conversation/reset   - 重置对话")
     print("=" * 60)
     print("🚀 服务启动中...")
     print("=" * 60)
-    
-    # 显示所有可用路由
-    print("可用API端点:")
-    for rule in app.url_map.iter_rules():
-        if rule.rule.startswith('/api') or rule.rule == '/':
-            print(f"  {rule.rule}")
-    
-    print("=" * 60)
-    
-    # 启动服务
-    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+
+    # 启动 Flask 服务
+    app.run(
+        debug=True,
+        host='0.0.0.0',
+        port=5000,
+        use_reloader=False  # 禁用自动重载，避免模型重复加载
+    )
