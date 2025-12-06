@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大学生心理分析数字人代理 - 带表情识别</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #333;
+            overflow: hidden;
+            height: 100vh;
+            padding: 20px;
+        }
+        
+        :root {
+            --doubao-primary: #6ecbf5;
+            --doubao-secondary: #4a90e2;
+            --doubao-light: rgba(232, 244, 252, 0.7);
+            --doubao-accent: #ff8c94;
+            --text-primary: #333333;
+        }
+        
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            text-align: center;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: var(--doubao-secondary);
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            font-size: 14px;
+            color: var(--doubao-primary);
+        }
+        
+        /* 3D场景容器 - 调整位置到左侧 */
+        #scene-container {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            width: 320px;
+            height: 320px;
+            border-radius: 25px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(110, 203, 245, 0.3);
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            z-index: 50;
+        }
+        
+        /* 摄像头预览容器 - 放在右侧 */
+        #camera-container {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            width: 320px;
+            height: 240px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            display: none; /* 默认隐藏，用户同意后显示 */
+        }
+        
+        #camera-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .camera-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 101;
+        }
+        
+        .camera-btn {
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .camera-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .camera-btn.active {
+            background: var(--doubao-primary);
+            color: white;
+        }
+        
+        /* 表情结果显示区域 */
+        .emotion-display {
+            position: absolute;
+            top: 410px;
+            right: 20px;
+            width: 320px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            display: none; /* 默认隐藏 */
+        }
+        
+        .emotion-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .emotion-icon {
+            font-size: 24px;
+        }
+        
+        .emotion-title {
+            font-size: 18px;
+            color: var(--doubao-secondary);
+            font-weight: 600;
+        }
+        
+        .emotion-result {
+            font-size: 32px;
+            text-align: center;
+            margin: 15px 0;
+            min-height: 40px;
+        }
+        
+        .emotion-bar-container {
+            margin-top: 15px;
+        }
+        
+        .emotion-bar {
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            margin: 5px 0;
+            overflow: hidden;
+        }
+        
+        .emotion-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #6ecbf5, #4a90e2);
+            width: 0%;
+            transition: width 1s ease;
+        }
+        
+        .emotion-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-top: 2px;
+        }
+        
+        .chat-container {
+            position: absolute;
+            bottom: 180px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(85% - 360px); /* 减去两侧容器的宽度 */
+            max-width: 800px;
+            z-index: 100;
+        }
+        
+        .response-bubble {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .response-content {
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+        
+        #input-container {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(85% - 360px); /* 减去两侧容器的宽度 */
+            max-width: 800px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+            display: flex;
+            gap: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        #user-input {
+            flex: 1;
+            padding: 15px 20px;
+            border-radius: 15px;
+            border: 2px solid var(--doubao-primary);
+            background: rgba(255, 255, 255, 0.7);
+            color: var(--text-primary);
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        
+        #user-input:focus {
+            border-color: var(--doubao-secondary);
+            box-shadow: 0 0 0 3px rgba(110, 203, 245, 0.2);
+            background: white;
+        }
+        
+        #user-input::placeholder {
+            color: #95a5a6;
+        }
+        
+        #submit-btn {
+            padding: 15px 30px;
+            border-radius: 15px;
+            border: none;
+            background: linear-gradient(135deg, var(--doubao-primary) 0%, var(--doubao-secondary) 100%);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+            box-shadow: 0 4px 15px rgba(110, 203, 245, 0.4);
+        }
+        
+        #submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(110, 203, 245, 0.6);
+        }
+        
+        #submit-btn:active {
+            transform: translateY(0);
+        }
+        
+        #submit-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(110, 203, 245, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--doubao-primary);
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            background: rgba(46, 204, 113, 0.9);
+            color: white;
+            font-size: 14px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: white;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.analyzing {
+            background: var(--doubao-accent);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.7; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.7; }
+        }
+        
+        .watermark {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            z-index: 50;
+            text-align: center;
+        }
+        
+        /* 隐藏分析信息 */
+        .analysis-info {
+            display: none;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 1200px) {
+            #scene-container,
+            #camera-container,
+            .emotion-display {
+                width: 280px;
+            }
+            
+            #scene-container {
+                height: 280px;
+            }
+            
+            .chat-container,
+            #input-container {
+                width: calc(100% - 40px);
+                left: 20px;
+                transform: none;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .header p {
+                font-size: 12px;
+            }
+            
+            #scene-container,
+            #camera-container {
+                width: 200px;
+                height: 200px;
+                top: 60px;
+            }
+            
+            .emotion-display {
+                width: 200px;
+                top: 270px;
+            }
+            
+            .chat-container {
+                width: calc(100% - 40px);
+                bottom: 160px;
+            }
+            
+            #input-container {
+                width: calc(100% - 40px);
+                bottom: 30px;
+                padding: 15px;
+                left: 20px;
+                transform: none;
+            }
+            
+            .response-bubble {
+                padding: 15px;
+                max-height: 150px;
+            }
+            
+            #user-input {
+                padding: 12px 15px;
+                font-size: 14px;
+            }
+            
+            #submit-btn {
+                padding: 12px 20px;
+                min-width: 100px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>大学生心理分析数字人代理 - 带表情识别</h1>
+        <p>AI数字人结合表情分析，提供更精准的心理状态评估</p>
+    </div>
+    
+    <div class="status-indicator">
+        <div class="status-dot"></div>
+        <span id="status-text">系统就绪</span>
+    </div>
+    
+    <!-- 3D数字人场景 -->
+    <div id="scene-container"></div>
+    
+    <!-- 摄像头预览 -->
+    <div id="camera-container">
+        <video id="camera-preview" autoplay playsinline></video>
+        <div class="camera-controls">
+            <button id="camera-toggle" class="camera-btn">开启摄像头</button>
+            <button id="emotion-toggle" class="camera-btn" disabled>开启表情分析</button>
+        </div>
+    </div>
+    
+    <!-- 表情结果显示 -->
+    <div class="emotion-display">
+        <div class="emotion-header">
+            <div class="emotion-icon" id="emotion-icon">😐</div>
+            <div class="emotion-title">当前情绪分析</div>
+        </div>
+        <div class="emotion-result" id="emotion-result">等待分析...</div>
+        <div class="emotion-bar-container" id="emotion-bars">
+            <!-- 动态生成情绪条 -->
+        </div>
+    </div>
+    
+    <!-- 对话区域 -->
+    <div class="chat-container">
+        <div id="response-container" style="display: none;">
+            <div class="response-bubble">
+                <div class="response-content" id="response-content"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 输入区域 -->
+    <div id="input-container">
+        <input type="text" id="user-input" placeholder="请描述你当前的心理状态或遇到的问题...">
+        <button id="submit-btn">发送</button>
+    </div>
+    
+    <div class="watermark">大学生心理健康支持系统 • 专业心理分析与表情识别</div>
+
+    <script>
+        // API配置
+        const API_BASE_URL = 'http://localhost:5000/api';
+
+        // 状态变量
+        let isAnalyzing = false;
+        let cameraActive = false;
+        let emotionAnalysisActive = false;
+        let videoStream = null;
+        let emotionInterval = null;
+        let currentEmotion = 'neutral';
+        let currentEmotionScores = {};
+        
+        // DOM元素
+        const statusText = document.getElementById('status-text');
+        const statusDot = document.querySelector('.status-dot');
+        const responseContainer = document.getElementById('response-container');
+        const responseContent = document.getElementById('response-content');
+        const submitBtn = document.getElementById('submit-btn');
+        const userInput = document.getElementById('user-input');
+        const cameraContainer = document.getElementById('camera-container');
+        const cameraPreview = document.getElementById('camera-preview');
+        const cameraToggle = document.getElementById('camera-toggle');
+        const emotionToggle = document.getElementById('emotion-toggle');
+        const emotionDisplay = document.querySelector('.emotion-display');
+        const emotionResult = document.getElementById('emotion-result');
+        const emotionIcon = document.getElementById('emotion-icon');
+        const emotionBars = document.getElementById('emotion-bars');
+        
+        // 情绪图标映射
+        const emotionIcons = {
+            'angry': '😠',
+            'disgust': '🤢',
+            'fear': '😨',
+            'happy': '😊',
+            'sad': '😢',
+            'surprise': '😲',
+            'neutral': '😐'
+        };
+        
+        // 情绪颜色映射
+        const emotionColors = {
+            'angry': '#ff6b6b',
+            'disgust': '#9b59b6',
+            'fear': '#f39c12',
+            'happy': '#2ecc71',
+            'sad': '#3498db',
+            'surprise': '#9b59b6',
+            'neutral': '#95a5a6'
+        };
+        
+        // 情绪中文描述
+        const emotionDescriptions = {
+            'angry': '生气',
+            'disgust': '厌恶',
+            'fear': '恐惧',
+            'happy': '开心',
+            'sad': '悲伤',
+            'surprise': '惊讶',
+            'neutral': '平静'
+        };
+
+        // ==================== 3D数字人部分 ====================
+        
+        // 创建优化后的雪人形象
+        function createSnowmanCharacter() {
+            const container = document.getElementById('scene-container');
+            
+            // 创建场景
+            const scene = new THREE.Scene();
+            scene.background = null;
+            
+            // 创建相机
+            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 0, 5);
+            
+            // 创建渲染器
+            const renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                alpha: true,
+                powerPreference: "high-performance"
+            });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+            
+            // 添加灯光
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            mainLight.position.set(5, 10, 5);
+            mainLight.castShadow = true;
+            scene.add(mainLight);
+            
+            const fillLight = new THREE.DirectionalLight(0xb3e0ff, 0.4);
+            fillLight.position.set(-5, 5, 5);
+            scene.add(fillLight);
+            
+            // 创建雪人组
+            const snowman = new THREE.Group();
+            
+            // 创建雪人身体
+            const bottomBodyGeometry = new THREE.SphereGeometry(1.0, 32, 32);
+            const headGeometry = new THREE.SphereGeometry(0.7, 32, 32);
+            
+            const snowMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xf8f8f8,
+                shininess: 30,
+                transparent: true,
+                opacity: 0.95
+            });
+            
+            const bottomBody = new THREE.Mesh(bottomBodyGeometry, snowMaterial);
+            bottomBody.position.y = -0.3;
+            bottomBody.castShadow = true;
+            snowman.add(bottomBody);
+            
+            const head = new THREE.Mesh(headGeometry, snowMaterial);
+            head.position.y = 0.9;
+            head.castShadow = true;
+            head.scale.set(1, 1.1, 1);
+            snowman.add(head);
+            
+            // 创建眼睛
+            const eyeGroup = new THREE.Group();
+            
+            const eyeWhiteGeometry = new THREE.SphereGeometry(0.18, 16, 16);
+            const eyeWhiteMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+            
+            const leftEyeWhite = new THREE.Mesh(eyeWhiteGeometry, eyeWhiteMaterial);
+            leftEyeWhite.position.set(-0.25, 1.0, 0.55);
+            eyeGroup.add(leftEyeWhite);
+            
+            const rightEyeWhite = new THREE.Mesh(eyeWhiteGeometry, eyeWhiteMaterial);
+            rightEyeWhite.position.set(0.25, 1.0, 0.55);
+            eyeGroup.add(rightEyeWhite);
+            
+            const pupilGeometry = new THREE.SphereGeometry(0.1, 12, 12);
+            const pupilMaterial = new THREE.MeshPhongMaterial({ color: 0x2c3e50 });
+            
+            const leftPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+            leftPupil.position.set(-0.25, 1.0, 0.7);
+            eyeGroup.add(leftPupil);
+            
+            const rightPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+            rightPupil.position.set(0.25, 1.0, 0.7);
+            eyeGroup.add(rightPupil);
+            
+            snowman.add(eyeGroup);
+            
+            // 鼻子
+            const noseGeometry = new THREE.SphereGeometry(0.05, 12, 12);
+            const noseMaterial = new THREE.MeshPhongMaterial({ color: 0xffa8b5 });
+            const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+            nose.position.set(0, 0.95, 0.6);
+            snowman.add(nose);
+            
+            // 嘴巴
+            const mouthGeometry = new THREE.TorusGeometry(0.15, 0.02, 8, 32, Math.PI);
+            const mouthMaterial = new THREE.MeshPhongMaterial({ color: 0xff6b7a });
+            const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
+            mouth.position.set(0, 0.8, 0.6);
+            mouth.rotation.x = Math.PI / 2;
+            snowman.add(mouth);
+            
+            // 腮红
+            const blushGeometry = new THREE.SphereGeometry(0.12, 12, 12);
+            const blushMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xff9eb5,
+                transparent: true,
+                opacity: 0.7
+            });
+            
+            const leftBlush = new THREE.Mesh(blushGeometry, blushMaterial);
+            leftBlush.position.set(-0.45, 0.95, 0.5);
+            snowman.add(leftBlush);
+            
+            const rightBlush = new THREE.Mesh(blushGeometry, blushMaterial);
+            rightBlush.position.set(0.45, 0.95, 0.5);
+            snowman.add(rightBlush);
+            
+            snowman.position.set(0, 0, 0);
+            scene.add(snowman);
+            
+            // 添加动画
+            let animationTime = 0;
+            let blinkTimer = 0;
+            let isBlinking = false;
+            
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                animationTime += 0.015;
+                blinkTimer += 0.05;
+                
+                // 呼吸效果
+                const breath = Math.sin(animationTime * 1.5) * 0.02 + 1;
+                snowman.scale.set(breath, breath, breath);
+                
+                // 浮动效果
+                snowman.position.y = Math.sin(animationTime) * 0.1;
+                
+                // 基础旋转
+                snowman.rotation.y = animationTime * 0.05;
+                
+                // 随机眨眼
+                if (!isBlinking && blinkTimer > 10 + Math.random() * 20) {
+                    isBlinking = true;
+                    blinkTimer = 0;
+                }
+                
+                if (isBlinking) {
+                    const blinkProgress = Math.min(blinkTimer * 10, 1);
+                    const eyeScaleY = 1 - blinkProgress;
+                    leftEyeWhite.scale.y = eyeScaleY;
+                    rightEyeWhite.scale.y = eyeScaleY;
+                    
+                    if (blinkTimer > 0.2) {
+                        isBlinking = false;
+                        blinkTimer = 0;
+                    }
+                } else {
+                    leftEyeWhite.scale.y = 1;
+                    rightEyeWhite.scale.y = 1;
+                }
+                
+                // 根据当前情绪调整雪人表情
+                updateSnowmanByEmotion(snowman, currentEmotion);
+                
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+            
+            // 窗口大小调整
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+            
+            return { snowman };
+        }
+        
+        // 根据情绪更新雪人表情
+        function updateSnowmanByEmotion(snowman, emotion) {
+            if (!snowman.children || !snowman.children[1]) return;
+            
+            const head = snowman.children[1]; // 头部
+            
+            switch(emotion) {
+                case 'happy':
+                    // 微笑
+                    if (head.children && head.children[4]) {
+                        head.children[4].position.y = 0.8; // 嘴巴位置
+                        head.children[4].rotation.x = Math.PI / 2 - 0.1;
+                    }
+                    break;
+                case 'sad':
+                    // 难过
+                    if (head.children && head.children[4]) {
+                        head.children[4].position.y = 0.85;
+                        head.children[4].rotation.x = Math.PI / 2 + 0.1;
+                    }
+                    break;
+                case 'angry':
+                    // 生气
+                    break;
+                default:
+                    // 中性
+                    if (head.children && head.children[4]) {
+                        head.children[4].position.y = 0.8;
+                        head.children[4].rotation.x = Math.PI / 2;
+                    }
+            }
+        }
+
+        // ==================== 摄像头控制部分 ====================
+        
+        // 开启摄像头
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: "user" // 前置摄像头
+                    }
+                });
+                
+                videoStream = stream;
+                cameraPreview.srcObject = stream;
+                cameraContainer.style.display = 'block';
+                cameraToggle.textContent = '关闭摄像头';
+                cameraToggle.classList.add('active');
+                cameraActive = true;
+                
+                // 启用表情分析按钮
+                emotionToggle.disabled = false;
+                statusText.textContent = "摄像头已开启";
+                
+                console.log("摄像头已开启");
+            } catch (err) {
+                console.error("无法访问摄像头: ", err);
+                alert("需要摄像头权限以实现表情分析功能。");
+            }
+        }
+        
+        // 关闭摄像头
+        function stopCamera() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            cameraPreview.srcObject = null;
+            cameraContainer.style.display = 'none';
+            cameraToggle.textContent = '开启摄像头';
+            cameraToggle.classList.remove('active');
+            cameraActive = false;
+            
+            // 关闭表情分析
+            stopEmotionAnalysis();
+            emotionToggle.textContent = '开启表情分析';
+            emotionToggle.disabled = true;
+            emotionToggle.classList.remove('active');
+            emotionAnalysisActive = false;
+            
+            statusText.textContent = "系统就绪";
+        }
+        
+        // 开启表情分析
+        function startEmotionAnalysis() {
+            if (!cameraActive) return;
+            
+            emotionAnalysisActive = true;
+            emotionToggle.textContent = '停止表情分析';
+            emotionToggle.classList.add('active');
+            emotionDisplay.style.display = 'block';
+            statusText.textContent = "表情分析中...";
+            
+            // 开始定期分析表情（每2秒一次）
+            emotionInterval = setInterval(captureAndAnalyzeEmotion, 2000);
+            
+            // 初始分析
+            setTimeout(captureAndAnalyzeEmotion, 500);
+        }
+        
+        // 停止表情分析
+        function stopEmotionAnalysis() {
+            emotionAnalysisActive = false;
+            if (emotionInterval) {
+                clearInterval(emotionInterval);
+                emotionInterval = null;
+            }
+            emotionDisplay.style.display = 'none';
+            statusText.textContent = "系统就绪";
+        }
+        
+        // 捕获并分析表情
+        async function captureAndAnalyzeEmotion() {
+            if (!cameraActive || !emotionAnalysisActive) return;
+            
+            try {
+                // 从视频流中捕获一帧
+                const canvas = document.createElement('canvas');
+                canvas.width = 640;
+                canvas.height = 480;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
+                
+                // 将图片转换为Base64
+                const imageData = canvas.toDataURL('image/jpeg', 0.7);
+                
+                // 调用后端API分析表情
+                const response = await fetch(`${API_BASE_URL}/analyze_emotion`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentEmotion = result.dominant_emotion;
+                    currentEmotionScores = result.emotion_scores;
+                    
+                    // 更新UI显示
+                    updateEmotionDisplay();
+                    
+                    // 更新状态提示
+                    statusText.textContent = `检测到: ${emotionDescriptions[currentEmotion] || currentEmotion}`;
+                }
+            } catch (error) {
+                console.error('表情分析API调用失败:', error);
+            }
+        }
+        
+        // 更新表情显示UI
+        function updateEmotionDisplay() {
+            // 更新情绪结果
+            emotionResult.textContent = emotionIcons[currentEmotion] + ' ' + 
+                                      (emotionDescriptions[currentEmotion] || currentEmotion);
+            emotionIcon.textContent = emotionIcons[currentEmotion];
+            
+            // 更新情绪条
+            updateEmotionBars();
+        }
+        
+        // 更新情绪条
+        function updateEmotionBars() {
+            emotionBars.innerHTML = '';
+            
+            // 排序情绪分数
+            const sortedEmotions = Object.entries(currentEmotionScores || {})
+                .sort((a, b) => b[1] - a[1]);
+            
+            sortedEmotions.forEach(([emotion, score]) => {
+                const barContainer = document.createElement('div');
+                barContainer.className = 'emotion-bar-container';
+                
+                const emotionLabel = document.createElement('div');
+                emotionLabel.className = 'emotion-label';
+                emotionLabel.innerHTML = `
+                    <span>${emotionIcons[emotion] || '😐'} ${emotionDescriptions[emotion] || emotion}</span>
+                    <span>${score.toFixed(1)}%</span>
+                `;
+                
+                const bar = document.createElement('div');
+                bar.className = 'emotion-bar';
+                
+                const fill = document.createElement('div');
+                fill.className = 'emotion-fill';
+                fill.style.width = `${score}%`;
+                fill.style.background = emotionColors[emotion] || '#6ecbf5';
+                
+                bar.appendChild(fill);
+                barContainer.appendChild(emotionLabel);
+                barContainer.appendChild(bar);
+                
+                emotionBars.appendChild(barContainer);
+            });
+        }
+
+        // ==================== 主要交互功能 ====================
+        
+        // 页面加载完成后初始化
+        window.addEventListener('load', () => {
+            // 创建3D雪人
+            const { snowman } = createSnowmanCharacter();
+            
+            // 询问是否开启摄像头
+            setTimeout(() => {
+                if (confirm('是否开启摄像头进行实时表情分析以优化心理评估？\n\n开启后，系统将分析您的面部表情，提供更精准的心理状态评估。')) {
+                    startCamera();
+                    setTimeout(() => {
+                        if (cameraActive && confirm('是否同时开启实时表情分析？')) {
+                            startEmotionAnalysis();
+                        }
+                    }, 1000);
+                }
+            }, 1000);
+        });
+        
+        // 页面关闭时清理资源
+        window.addEventListener('beforeunload', () => {
+            stopCamera();
+        });
+        
+        // 摄像头切换按钮
+        cameraToggle.addEventListener('click', () => {
+            if (cameraActive) {
+                stopCamera();
+            } else {
+                startCamera();
+            }
+        });
+        
+        // 表情分析切换按钮
+        emotionToggle.addEventListener('click', () => {
+            if (emotionAnalysisActive) {
+                stopEmotionAnalysis();
+            } else {
+                startEmotionAnalysis();
+            }
+        });
+        
+        // 处理用户输入
+        submitBtn.addEventListener('click', analyzeInput);
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                analyzeInput();
+            }
+        });
+
+        async function analyzeInput() {
+            const inputText = userInput.value.trim();
+            if (inputText && !isAnalyzing) {
+                isAnalyzing = true;
+                statusText.textContent = "心理分析中...";
+                statusDot.classList.add('analyzing');
+                submitBtn.disabled = true;
+                
+                // 显示响应容器
+                responseContainer.style.display = 'block';
+                responseContent.innerHTML = `<span class="loading"></span>正在分析你的心理状态，请稍候...`;
+                
+                try {
+                    // 构建请求数据，包含当前情绪
+                    const payload = {
+                        message: inputText,
+                        detected_emotion: currentEmotion
+                    };
+                    
+                    // 调用Python后端API
+                    const response = await fetch(`${API_BASE_URL}/analyze`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // 格式化响应内容
+                        let formattedResponse = data.response;
+                        
+                        // 添加情绪上下文提示
+                        if (currentEmotion !== 'neutral') {
+                            const emotionNote = `<div style="margin-top: 10px; padding: 10px; background: rgba(110, 203, 245, 0.1); border-radius: 8px; font-size: 14px;">
+                                <strong>🤖 AI提示：</strong>在分析您的描述时，系统检测到您当前的<strong>${emotionDescriptions[currentEmotion] || currentEmotion}${emotionIcons[currentEmotion]}</strong>情绪，这可能影响您的感受和想法。
+                            </div>`;
+                            formattedResponse += emotionNote;
+                        }
+                        
+                        responseContent.innerHTML = formattedResponse;
+                        statusText.textContent = "分析完成";
+                    } else {
+                        responseContent.innerHTML = `抱歉，分析过程中出现错误。请稍后再试。<br><small>错误信息: ${data.error || '未知错误'}</small>`;
+                        statusText.textContent = "分析失败";
+                    }
+                    
+                } catch (error) {
+                    console.error('API调用错误:', error);
+                    responseContent.innerHTML = `网络连接出现问题，请检查网络后重试。<br><small>错误详情: ${error.message}</small>`;
+                    statusText.textContent = "网络错误";
+                } finally {
+                    isAnalyzing = false;
+                    statusDot.classList.remove('analyzing');
+                    submitBtn.disabled = false;
+                    userInput.value = '';
+                    userInput.focus();
+                    
+                    // 3秒后恢复就绪状态
+                    setTimeout(() => {
+                        if (!isAnalyzing) {
+                            statusText.textContent = emotionAnalysisActive ? 
+                                `检测到: ${emotionDescriptions[currentEmotion] || currentEmotion}` : 
+                                "系统就绪";
+                        }
+                    }, 3000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
