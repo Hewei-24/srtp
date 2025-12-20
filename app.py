@@ -7,9 +7,11 @@
 2. DeepFace 面部表情识别
 3. 对话历史管理
 4. RESTful API 接口
+5. 数字人形象选择功能
+6. 语音输入识别功能
 
 作者: SRTP 项目组
-版本: 2.0
+版本: 2.2
 """
 
 import os
@@ -19,13 +21,29 @@ import datetime
 import subprocess
 import uuid
 import glob
+import io
+import wave
+import tempfile
 from typing import Dict, Any, Optional
 
 import cv2
 import numpy as np
 import requests
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, redirect, url_for
 from flask_cors import CORS
+
+# 语音识别相关导入
+try:
+    import speech_recognition as sr
+    import pydub
+    from pydub import AudioSegment
+    SPEECH_RECOGNITION_AVAILABLE = True
+    logger = logging.getLogger(__name__)
+    logger.info("语音识别库加载成功")
+except ImportError:
+    SPEECH_RECOGNITION_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("语音识别库未安装，语音输入功能不可用。请运行: pip install SpeechRecognition pydub")
 
 # ==================== 日志配置 ====================
 logging.basicConfig(
@@ -58,13 +76,32 @@ TTS_API_TOKEN = "sk-lvtuhfndddcmdyvnjtbzjuobfoewylsnqaqwfsnuznpilhkp"
 
 # SadTalker 配置
 SADTALKER_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SadTalker")
-SADTALKER_IMAGE = os.path.join(SADTALKER_DIR, "my_photo.png")  # 数字人图片
+SADTALKER_IMAGE = os.path.join(SADTALKER_DIR, "my_photo.png")  # 数字人图片（默认）
 SADTALKER_OUTPUT_DIR = os.path.join(SADTALKER_DIR, "results")
 AUDIO_OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_output")
+AVATARS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatars")
+SPEECH_INPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "speech_input")
 
 # 确保输出目录存在
 os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
 os.makedirs(SADTALKER_OUTPUT_DIR, exist_ok=True)
+os.makedirs(AVATARS_DIR, exist_ok=True)
+os.makedirs(SPEECH_INPUT_DIR, exist_ok=True)
+
+# 检查 avatars 目录下是否有默认图片，如果没有则创建
+default_avatar_path = os.path.join(AVATARS_DIR, "avatar1.png")
+if not os.path.exists(default_avatar_path):
+    # 将 SadTalker 的默认图片复制到 avatars 目录作为 avatar1
+    if os.path.exists(SADTALKER_IMAGE):
+        import shutil
+        shutil.copy2(SADTALKER_IMAGE, default_avatar_path)
+        logger.info(f"已将默认数字人图片复制到: {default_avatar_path}")
+    else:
+        # 创建三个示例图片路径
+        for i in range(1, 4):
+            avatar_path = os.path.join(AVATARS_DIR, f"avatar{i}.png")
+            if not os.path.exists(avatar_path):
+                logger.warning(f"数字人图片不存在: {avatar_path}，请放置相应图片文件")
 
 # 情绪映射表
 EMOTION_MAP = {
@@ -85,6 +122,120 @@ DEFAULT_EMOTION_SCORES = {
 
 # 对话历史（全局变量）
 conversation_history: list = []
+
+
+# ==================== 语音识别模块 ====================
+def recognize_speech_from_audio(audio_data: bytes, audio_format: str = "webm") -> Dict[str, Any]:
+    """
+    从音频数据中识别语音
+    
+    Args:
+        audio_data: 音频字节数据
+        audio_format: 音频格式（webm, wav, mp3等）
+        
+    Returns:
+        包含识别结果的字典
+    """
+    if not SPEECH_RECOGNITION_AVAILABLE:
+        return {
+            "success": False,
+            "error": "语音识别库未安装",
+            "text": ""
+        }
+    
+    try:
+        recognizer = sr.Recognizer()
+        
+        # 创建临时文件保存音频
+        with tempfile.NamedTemporaryFile(suffix=f".{audio_format}", delete=False) as tmp_file:
+            tmp_file.write(audio_data)
+            tmp_file_path = tmp_file.name
+        
+        try:
+            # 使用 pydub 加载音频文件
+            if audio_format == "webm":
+                audio = AudioSegment.from_file(tmp_file_path, format="webm")
+            elif audio_format == "mp3":
+                audio = AudioSegment.from_mp3(tmp_file_path)
+            elif audio_format == "wav":
+                audio = AudioSegment.from_wav(tmp_file_path)
+            else:
+                # 尝试自动检测格式
+                audio = AudioSegment.from_file(tmp_file_path)
+            
+            # 转换为 wav 格式（SpeechRecognition 需要）
+            wav_data = io.BytesIO()
+            audio.export(wav_data, format="wav")
+            wav_data.seek(0)
+            
+            # 使用 SpeechRecognition 识别
+            with sr.AudioFile(wav_data) as source:
+                # 调整环境噪声
+                recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                audio_data = recognizer.record(source)
+                
+                # 识别语音
+                text = recognizer.recognize_google(audio_data, language="zh-CN")
+                
+                logger.info(f"语音识别成功: {text}")
+                
+                return {
+                    "success": True,
+                    "text": text,
+                    "confidence": 0.9  # 暂时使用固定值
+                }
+                
+        except sr.UnknownValueError:
+            return {
+                "success": False,
+                "error": "无法理解音频内容",
+                "text": ""
+            }
+        except sr.RequestError as e:
+            logger.error(f"语音识别服务错误: {e}")
+            return {
+                "success": False,
+                "error": f"语音识别服务错误: {e}",
+                "text": ""
+            }
+        except Exception as e:
+            logger.error(f"语音识别处理错误: {e}")
+            return {
+                "success": False,
+                "error": f"处理错误: {str(e)}",
+                "text": ""
+            }
+        finally:
+            # 清理临时文件
+            try:
+                os.unlink(tmp_file_path)
+            except:
+                pass
+                
+    except Exception as e:
+        logger.error(f"语音识别失败: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "text": ""
+        }
+
+
+def save_audio_file(audio_data: bytes, filename: str) -> str:
+    """
+    保存音频文件到本地
+    
+    Args:
+        audio_data: 音频字节数据
+        filename: 文件名
+        
+    Returns:
+        保存的文件路径
+    """
+    file_path = os.path.join(SPEECH_INPUT_DIR, filename)
+    with open(file_path, 'wb') as f:
+        f.write(audio_data)
+    return file_path
 
 
 # ==================== 心理分析代理类 ====================
@@ -565,12 +716,16 @@ agent = PsychologicalAgent(DEEPSEEK_API_KEY)
 # ==================== API 路由 ====================
 
 @app.route('/')
-def index():
+def root_redirect():
     """
-    首页路由 - 提供前端页面
+    根路径 - 重定向到选择页面
+    """
+    return redirect('/select')
 
-    Returns:
-        HTML 页面内容
+@app.route('/index')
+def main_page():
+    """
+    主页面路由 - 提供主页面
     """
     try:
         with open('index.html', 'r', encoding='utf-8') as f:
@@ -582,11 +737,159 @@ def index():
         <head><title>大学生心理分析数字人代理</title></head>
         <body style="font-family: Arial; padding: 40px; text-align: center;">
             <h1 style="color: #4a90e2;">大学生心理分析数字人代理</h1>
-            <p>系统正在运行，但 index.html 文件未找到</p>
-            <p>API 测试：<a href="/api/health">/api/health</a></p>
+            <p>请先 <a href="/select">选择数字人形象</a></p>
         </body>
         </html>
         """
+
+
+@app.route('/select')
+def select_page():
+    """选择数字人入口页"""
+    try:
+        with open('select.html', 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head><title>选择数字人形象</title></head>
+        <body style="font-family: Arial; padding: 40px; text-align: center;">
+            <h1 style="color: #4a90e2;">选择数字人形象</h1>
+            <p>select.html 文件未找到，请确保文件存在。</p>
+        </body>
+        </html>
+        """, 404
+
+
+@app.route('/avatars/<filename>')
+def serve_avatar(filename):
+    """
+    提供数字人图片服务
+    """
+    try:
+        return send_from_directory('avatars', filename)
+    except FileNotFoundError:
+        logger.error(f"数字人图片未找到: {filename}")
+        return jsonify({"error": f"图片 {filename} 未找到"}), 404
+
+
+@app.route('/api/set_avatar', methods=['POST'])
+def set_sadtalker_image():
+    """
+    设置 SadTalker 使用的数字人图片
+    """
+    try:
+        data = request.get_json()
+        avatar_id = data.get('avatar_id', '1')
+        
+        # 根据 avatar_id 设置对应的图片
+        avatar_images = {
+            '1': 'avatar1.png',
+            '2': 'avatar2.png', 
+            '3': 'avatar3.png'
+        }
+        
+        avatar_filename = avatar_images.get(avatar_id, 'avatar1.png')
+        new_image_path = os.path.join('avatars', avatar_filename)
+        
+        # 检查文件是否存在
+        if os.path.exists(new_image_path):
+            # 更新 SadTalker 配置中的图片路径
+            global SADTALKER_IMAGE
+            SADTALKER_IMAGE = new_image_path
+            logger.info(f"已更新 SadTalker 图片为: {new_image_path}")
+            
+            # 如果需要，也复制到 SadTalker 目录
+            sadtalker_dest = os.path.join(SADTALKER_DIR, "my_photo.png")
+            try:
+                import shutil
+                shutil.copy2(new_image_path, sadtalker_dest)
+                logger.info(f"已复制到 SadTalker 目录: {sadtalker_dest}")
+            except Exception as e:
+                logger.warning(f"复制到 SadTalker 目录失败: {str(e)}")
+            
+            return jsonify({"success": True, "message": f"已切换为形象 {avatar_id}"})
+        else:
+            logger.error(f"数字人图片不存在: {new_image_path}")
+            return jsonify({"success": False, "error": "图片文件不存在"}), 404
+            
+    except Exception as e:
+        logger.error(f"设置数字人图片失败: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ==================== 语音识别API ====================
+@app.route('/api/recognize_speech', methods=['POST'])
+def recognize_speech():
+    """
+    语音识别接口
+    
+    支持上传音频文件进行语音识别
+    """
+    try:
+        logger.info("收到语音识别请求")
+        
+        # 检查是否安装了语音识别库
+        if not SPEECH_RECOGNITION_AVAILABLE:
+            return jsonify({
+                "success": False,
+                "error": "语音识别功能未启用，请安装依赖: pip install SpeechRecognition pydub"
+            }), 501
+        
+        # 检查请求数据
+        if 'audio' not in request.files and 'audio_data' not in request.form:
+            return jsonify({"success": False, "error": "没有提供音频数据"}), 400
+        
+        audio_format = request.form.get('format', 'webm')
+        
+        if 'audio' in request.files:
+            # 处理文件上传
+            audio_file = request.files['audio']
+            audio_data = audio_file.read()
+        else:
+            # 处理Base64编码的音频数据
+            audio_data_str = request.form.get('audio_data', '')
+            if ',' in audio_data_str:
+                audio_data_str = audio_data_str.split(',')[1]
+            audio_data = base64.b64decode(audio_data_str)
+        
+        # 识别语音
+        result = recognize_speech_from_audio(audio_data, audio_format)
+        
+        if result["success"]:
+            # 保存音频文件（可选）
+            filename = f"speech_{uuid.uuid4().hex[:8]}.{audio_format}"
+            save_audio_file(audio_data, filename)
+            
+            result["audio_url"] = f"/api/speech/{filename}"
+            result["timestamp"] = datetime.datetime.now().isoformat()
+            
+            logger.info(f"语音识别成功: {result['text'][:50]}...")
+        else:
+            logger.warning(f"语音识别失败: {result.get('error', '未知错误')}")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"语音识别接口错误: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"服务器错误: {str(e)}",
+            "text": ""
+        }), 500
+
+
+@app.route('/api/speech/<filename>')
+def serve_speech(filename):
+    """
+    提供语音文件服务
+    """
+    try:
+        return send_from_directory(SPEECH_INPUT_DIR, filename)
+    except FileNotFoundError:
+        logger.error(f"语音文件未找到: {filename}")
+        return jsonify({"error": "语音文件未找到"}), 404
 
 
 @app.route('/api/analyze', methods=['POST'])
@@ -798,6 +1101,7 @@ def model_status():
         "model_loading": False,
         "deepface_available": DEEPFACE_AVAILABLE,
         "deepseek_api_available": True,
+        "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
         "timestamp": datetime.datetime.now().isoformat()
     })
 
@@ -816,6 +1120,7 @@ def api_status():
         "status": "healthy" if api_test.get("success") else "warning",
         "deepseek_api": api_test,
         "deepface_available": DEEPFACE_AVAILABLE,
+        "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
         "timestamp": datetime.datetime.now().isoformat()
     })
 
@@ -831,13 +1136,15 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "service": "大学生心理分析数字人代理",
-        "version": "2.0",
+        "version": "2.2",
         "timestamp": datetime.datetime.now().isoformat(),
         "features": {
             "psychological_analysis": True,
             "emotion_recognition": DEEPFACE_AVAILABLE,
             "real_time_camera": True,
-            "deepseek_api": True
+            "deepseek_api": True,
+            "avatar_selection": True,
+            "speech_input": SPEECH_RECOGNITION_AVAILABLE
         }
     })
 
@@ -885,7 +1192,9 @@ def debug_info():
         "routes": [str(rule) for rule in app.url_map.iter_rules()],
         "conversation_length": len(conversation_history),
         "deepface_available": DEEPFACE_AVAILABLE,
+        "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
         "api_key_set": bool(DEEPSEEK_API_KEY),
+        "sadtalker_image": SADTALKER_IMAGE,
         "timestamp": datetime.datetime.now().isoformat()
     })
 
@@ -900,9 +1209,12 @@ def favicon():
 if __name__ == '__main__':
     # 打印启动信息
     print("=" * 60)
-    print("大学生心理分析数字人代理 v2.0")
+    print("大学生心理分析数字人代理 v2.2")
     print("=" * 60)
     print(f"📱 服务地址: http://localhost:5000")
+    print(f"👤 形象选择: http://localhost:5000/select")
+    print(f"💬 主页面: http://localhost:5000/index")
+    print(f"🎤 语音输入: 支持（需要浏览器支持语音识别）")
     print(f"❤️  健康检查: http://localhost:5000/api/health")
     print(f"📊 模型状态: http://localhost:5000/api/model/status")
     print(f"🔍 调试信息: http://localhost:5000/api/debug")
@@ -911,11 +1223,20 @@ if __name__ == '__main__':
     print("  POST /api/analyze        - 心理分析")
     print("  POST /api/analyze_local  - 本地模型分析")
     print("  POST /api/analyze_emotion - 表情识别")
+    print("  POST /api/set_avatar     - 设置数字人形象")
+    print("  POST /api/recognize_speech - 语音识别")
     print("  GET  /api/health         - 健康检查")
     print("  GET  /api/model/status   - 模型状态")
     print("  GET  /api/conversation/summary - 对话摘要")
     print("  POST /api/conversation/reset   - 重置对话")
     print("=" * 60)
+    
+    # 检查语音识别功能
+    if SPEECH_RECOGNITION_AVAILABLE:
+        print("✅ 语音识别功能已启用")
+    else:
+        print("⚠️  语音识别功能未启用，请运行: pip install SpeechRecognition pydub")
+    
     print("🚀 服务启动中...")
     print("=" * 60)
 

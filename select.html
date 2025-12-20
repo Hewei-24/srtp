@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>选择数字人形象</title>
+    <style>
+        /* 与 index.html 完全一致的渐变背景 */
+        body{
+            margin:0;
+            padding:0;
+            min-height:100vh;
+            background:linear-gradient(135deg,#a8edea 0%,#fed6e3 100%);
+            font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+        .wrapper{
+            text-align:center;
+            background:rgba(255,255,255,.9);
+            padding:40px 50px;
+            border-radius:20px;
+            box-shadow:0 8px 25px rgba(0,0,0,.1);
+        }
+        .wrapper h1{
+            margin-bottom:30px;
+            color:#4a90e2;
+        }
+        .avatars{
+            display:flex;
+            gap:30px;
+            justify-content:center;
+            flex-wrap:wrap;
+        }
+        .avatar-card{
+            cursor:pointer;
+            transition:transform .3s;
+        }
+        .avatar-card:hover{
+            transform:translateY(-8px);
+        }
+        .avatar-card img{
+            width:160px;
+            height:160px;
+            object-fit:contain;
+            border-radius:15px;
+            background:#fff;
+            padding:10px;
+            box-shadow:0 4px 15px rgba(0,0,0,.1);
+        }
+        .avatar-card p{
+            margin-top:10px;
+            color:#555;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <h1>请选择你喜欢的数字人形象</h1>
+    <div class="avatars">
+        <div class="avatar-card" data-id="1">
+            <img src="/avatars/avatar1.png" alt="数字人1">
+            <p>形象 1 - 智能助手</p>
+        </div>
+        <div class="avatar-card" data-id="2">
+            <img src="/avatars/avatar2.png" alt="数字人2">
+            <p>形象 2 - 心理咨询师</p>
+        </div>
+        <div class="avatar-card" data-id="3">
+            <img src="/avatars/avatar3.png" alt="数字人3">
+            <p>形象 3 - 心灵导师</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 点击任意卡片即保存选择并跳转到主页面
+    document.querySelectorAll('.avatar-card').forEach(card=>{
+        card.addEventListener('click',()=>{
+            const id = card.dataset.id;
+            // 保存到 localStorage
+            localStorage.setItem('selectedAvatar', id);
+            
+            // 发送请求到后端设置 SadTalker 图片
+            fetch('/api/set_avatar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ avatar_id: id })
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      console.log(`已选择数字人形象 ${id}`);
+                  } else {
+                      console.warn('设置数字人形象失败:', data.error);
+                  }
+                  // 跳转到主页面
+                  location.href='/index';
+              })
+              .catch(error => {
+                  console.error('请求失败:', error);
+                  // 即使失败也跳转
+                  location.href='/index';
+              });
+        });
+    });
+    
+    // 页面加载时检查是否有已选择的形象
+    document.addEventListener('DOMContentLoaded', () => {
+        const selectedAvatar = localStorage.getItem('selectedAvatar');
+        if (selectedAvatar) {
+            console.log(`当前已选择的形象: ${selectedAvatar}`);
+        }
+    });
+</script>
+</body>
+</html>

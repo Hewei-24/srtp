@@ -4,233 +4,144 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>大学生心理分析数字人代理 - 带表情识别</title>
-    <!-- Three.js 已不需要，但保留也不会报错；为了“最小改动”我把它注释掉 -->
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> -->
     <style>
-        /* ========== 原样式完全不变 ========== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        body {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            color: #333;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .header {
-            text-align: center;
-            padding: 20px;
-            margin-bottom: 30px;
-        }
-        .header h1 {
-            font-size: 32px;
-            color: #4a90e2;
-            margin-bottom: 10px;
-        }
-        .header p {
-            font-size: 16px;
-            color: #666;
-        }
-        .main-content {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .left-panel {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-        }
-        .right-panel {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-        }
-        .panel-title {
-            font-size: 20px;
-            color: #4a90e2;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #eee;
-        }
-        #scene-container {
-            width: 100%;
-            height: 300px;
-            background: #f5f5f5;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 15px;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        #avatar-img {
-            height: 100%;
-            max-width: 100%;
-            object-fit: contain;
-        }
-        #avatar-video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: none;
-        }
-        #video-loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            display: none;
-        }
-        #video-loading .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #4a90e2;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-        #camera-preview {
-            width: 100%;
-            height: 250px;
-            background: #333;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-        .camera-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
+        /* ========== 样式 ========== */
+        *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+        body{background:linear-gradient(135deg,#a8edea 0%,#fed6e3 100%);color:#333;min-height:100vh;padding:20px}
+        .container{max-width:1200px;margin:0 auto}
+        .header{text-align:center;padding:20px;margin-bottom:30px}
+        .header h1{font-size:32px;color:#4a90e2;margin-bottom:10px}
+        .header p{font-size:16px;color:#666}
+        .main-content{display:flex;gap:20px;margin-bottom:30px}
+        .left-panel,.right-panel{flex:1;background:rgba(255,255,255,.9);border-radius:15px;padding:20px;box-shadow:0 8px 25px rgba(0,0,0,.1)}
+        .panel-title{font-size:20px;color:#4a90e2;margin-bottom:15px;padding-bottom:10px;border-bottom:2px solid #eee}
+        #scene-container{width:100%;height:300px;background:#f5f5f5;border-radius:10px;overflow:hidden;margin-bottom:15px;position:relative;display:flex;align-items:center;justify-content:center}
+        #avatar-img{height:100%;max-width:100%;object-fit:contain}
+        #avatar-video{width:100%;height:100%;object-fit:contain;display:none}
+        #video-loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;display:none}
+        #video-loading .spinner{width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #4a90e2;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px}
+        #camera-preview{width:100%;height:250px;background:#333;border-radius:10px;margin-bottom:15px}
+        .camera-controls{display:flex;gap:10px;margin-bottom:15px}
+        .btn{padding:10px 20px;border:none;border-radius:8px;background:#4a90e2;color:white;font-size:14px;cursor:pointer;transition:all .3s}
+        .btn:hover{background:#3a80d2;transform:translateY(-2px)}
+        .btn:disabled{background:#ccc;cursor:not-allowed}
+        .emotion-display{margin-top:20px;padding:15px;background:#f8f9fa;border-radius:10px}
+        .emotion-result{font-size:24px;text-align:center;margin:10px 0}
+        .chat-container{margin-bottom:30px}
+        .response-bubble{background:white;padding:20px;border-radius:15px;margin-bottom:15px;box-shadow:0 4px 15px rgba(0,0,0,.1);min-height:100px;max-height:300px;overflow-y:auto}
+        .input-container{display:flex;gap:10px}
+        #user-input{flex:1;padding:15px;border:2px solid #4a90e2;border-radius:10px;font-size:16px;outline:none}
+        #submit-btn{padding:15px 30px;background:linear-gradient(135deg,#4a90e2 0%,#357ae8 100%);color:white;border:none;border-radius:10px;font-size:16px;cursor:pointer;transition:all .3s}
+        #submit-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 20px rgba(74,144,226,.4)}
+        #submit-btn:disabled{background:#ccc;cursor:not-allowed}
+        .status-indicator{position:fixed;top:20px;right:20px;background:rgba(46,204,113,.9);color:white;padding:8px 15px;border-radius:20px;font-size:14px;display:flex;align-items:center;gap:8px}
+        .status-dot{width:8px;height:8px;background:white;border-radius:50%;animation:pulse 2s infinite}
+        
+        /* 更换形象按钮 */
+        .change-avatar-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
             background: #4a90e2;
             color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
             font-size: 14px;
-            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             transition: all 0.3s;
-        }
-        .btn:hover {
-            background: #3a80d2;
-            transform: translateY(-2px);
-        }
-        .btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .emotion-display {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-        .emotion-result {
-            font-size: 24px;
-            text-align: center;
-            margin: 10px 0;
-        }
-        .chat-container {
-            margin-bottom: 30px;
-        }
-        .response-bubble {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            min-height: 100px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .input-container {
-            display: flex;
-            gap: 10px;
-        }
-        #user-input {
-            flex: 1;
-            padding: 15px;
-            border: 2px solid #4a90e2;
-            border-radius: 10px;
-            font-size: 16px;
-            outline: none;
-        }
-        #submit-btn {
-            padding: 15px 30px;
-            background: linear-gradient(135deg, #4a90e2 0%, #357ae8 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        #submit-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(74, 144, 226, 0.4);
-        }
-        #submit-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .status-indicator {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(46, 204, 113, 0.9);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 14px;
+            z-index: 1000;
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background: white;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
+        .change-avatar-btn:hover {
+            background: #3a80d2;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .change-avatar-btn::before {
+            content: "👤";
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        
+        /* 语音输入相关样式 */
+        .voice-input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
         }
-        @media (max-width: 768px) {
-            .main-content {
-                flex-direction: column;
-            }
-            .header h1 {
-                font-size: 24px;
-            }
+        
+        .voice-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .voice-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+        }
+        
+        .voice-btn.listening {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .voice-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .voice-status {
+            font-size: 14px;
+            color: #666;
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .voice-btn::before {
+            content: "🎤";
+            font-size: 18px;
+        }
+        
+        .voice-btn.listening::before {
+            content: "🔴";
+        }
+        
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        @media (max-width:768px){
+            .main-content{flex-direction:column}
+            .header h1{font-size:24px}
+            .change-avatar-btn{bottom:10px;right:10px;padding:8px 15px}
+            .voice-input-container{flex-direction:column;}
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- 更换形象按钮 -->
+        <a href="/select" class="change-avatar-btn">更换形象</a>
+        
         <div class="header">
-            <h1>大学生心理分析数字人代理 - 带表情识别</h1>
-            <p>AI数字人结合表情分析，提供更精准的心理状态评估</p>
+            <h1 id="page-title">大学生心理分析数字人代理</h1>
+            <p id="page-subtitle">AI数字人结合表情分析，提供更精准的心理状态评估</p>
         </div>
 
         <div class="status-indicator">
@@ -242,13 +153,21 @@
             <div class="left-panel">
                 <div class="panel-title">数字人交互</div>
                 <div id="scene-container">
-                    <!-- 仅改动这里：用 img 标签替换 3D 场景 -->
-                    <img id="avatar-img" src="avatar.png" alt="数字人">
-                    <video id="avatar-video" controls></video>
-                    <div id="video-loading">
+                    <!-- 数字人图片 -->
+                    <img id="avatar-img" src="" alt="数字人">
+                    <!-- 数字人视频 -->
+                    <video id="avatar-video" controls style="display:none;width:100%;height:100%;object-fit:contain;"></video>
+                    <!-- 加载动画 -->
+                    <div id="video-loading" style="display:none">
                         <div class="spinner"></div>
                         <p>正在生成数字人视频...</p>
                     </div>
+                </div>
+
+                <!-- 语音输入区域 -->
+                <div class="voice-input-container">
+                    <button id="voice-btn" class="voice-btn">语音输入</button>
+                    <div id="voice-status" class="voice-status">点击按钮开始语音输入</div>
                 </div>
 
                 <div class="input-container">
@@ -259,14 +178,14 @@
 
             <div class="right-panel">
                 <div class="panel-title">表情分析</div>
-                <video id="camera-preview" autoplay playsinline style="display: none;"></video>
+                <video id="camera-preview" autoplay playsinline style="display:none;"></video>
 
                 <div class="camera-controls">
                     <button id="camera-toggle" class="btn">开启摄像头</button>
                     <button id="emotion-toggle" class="btn" disabled>开启表情分析</button>
                 </div>
 
-                <div class="emotion-display" style="display: none;">
+                <div class="emotion-display" style="display:none;">
                     <div class="panel-title">当前情绪分析</div>
                     <div class="emotion-result" id="emotion-result">等待分析...</div>
                     <div id="emotion-bars"></div>
@@ -283,18 +202,28 @@
     </div>
 
     <script>
-        /* =============== 以下脚本与原版完全一致 =============== */
+        /* =============== 全局变量 =============== */
         const emotionIcons = {
-            angry: '😠', disgust: '🤢', fear: '😨',
-            happy: '😊', sad: '😢', surprise: '😲', neutral: '😐'
+            'angry': '😠', 'disgust': '🤢', 'fear': '😨', 
+            'happy': '😊', 'sad': '😢', 'surprise': '😲', 
+            'neutral': '😐'
         };
         const emotionDescriptions = {
-            angry: '生气', disgust: '厌恶', fear: '恐惧',
-            happy: '开心', sad: '悲伤', surprise: '惊讶', neutral: '平静'
+            'angry': '生气', 'disgust': '厌恶', 'fear': '恐惧',
+            'happy': '开心', 'sad': '悲伤', 'surprise': '惊讶', 
+            'neutral': '平静'
         };
         const emotionColors = {
-            angry: '#ff6b6b', disgust: '#9b59b6', fear: '#f39c12',
-            happy: '#2ecc71', sad: '#3498db', surprise: '#9b59b6', neutral: '#95a5a6'
+            'angry': '#ff6b6b', 'disgust': '#9b59b6', 'fear': '#f39c12',
+            'happy': '#2ecc71', 'sad': '#3498db', 'surprise': '#9b59b6', 
+            'neutral': '#95a5a6'
+        };
+        
+        // 形象名称映射
+        const avatarNames = {
+            '1': '智能助手',
+            '2': '心理咨询师', 
+            '3': '心灵导师'
         };
 
         let isAnalyzing = false;
@@ -304,7 +233,13 @@
         let emotionInterval = null;
         let currentEmotion = 'neutral';
         let currentEmotionScores = {};
+        
+        // 语音识别相关变量
+        let recognition = null;
+        let isListening = false;
+        let speechTimeout = null;
 
+        // DOM 元素
         const statusText = document.getElementById('status-text');
         const userInput = document.getElementById('user-input');
         const submitBtn = document.getElementById('submit-btn');
@@ -315,40 +250,295 @@
         const emotionDisplay = document.querySelector('.emotion-display');
         const emotionResult = document.getElementById('emotion-result');
         const emotionBars = document.getElementById('emotion-bars');
+        const avatarImg = document.getElementById('avatar-img');
         const avatarVideo = document.getElementById('avatar-video');
         const videoLoading = document.getElementById('video-loading');
+        const pageTitle = document.getElementById('page-title');
+        const pageSubtitle = document.getElementById('page-subtitle');
+        const voiceBtn = document.getElementById('voice-btn');
+        const voiceStatus = document.getElementById('voice-status');
 
         const API_BASE_URL = 'http://localhost:5000/api';
 
-        /* ==================== 以下为原所有业务逻辑 ==================== */
-        document.addEventListener('DOMContentLoaded', function () {
-            setTimeout(() => {
-                if (confirm('是否开启摄像头进行表情分析？')) startCamera();
-            }, 1000);
+        /* =============== 语音输入功能 =============== */
+        function initSpeechRecognition() {
+            // 检查浏览器是否支持语音识别
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                voiceBtn.disabled = true;
+                voiceStatus.textContent = '您的浏览器不支持语音输入';
+                console.warn('浏览器不支持语音识别');
+                return false;
+            }
+            
+            // 创建语音识别实例
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            
+            // 配置识别器
+            recognition.continuous = false;  // 不持续识别
+            recognition.interimResults = true;  // 显示临时结果
+            recognition.lang = 'zh-CN';  // 设置为中文
+            recognition.maxAlternatives = 1;  // 只返回一个结果
+            
+            // 绑定事件
+            recognition.onstart = function() {
+                isListening = true;
+                voiceBtn.classList.add('listening');
+                voiceStatus.textContent = '正在聆听...请开始说话';
+                statusText.textContent = '语音识别中...';
+                console.log('语音识别开始');
+            };
+            
+            recognition.onresult = function(event) {
+                let interimTranscript = '';
+                let finalTranscript = '';
+                
+                // 处理结果
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                
+                // 显示临时结果
+                if (interimTranscript) {
+                    voiceStatus.textContent = `识别中: ${interimTranscript}`;
+                    userInput.value = interimTranscript;
+                }
+                
+                // 最终结果
+                if (finalTranscript) {
+                    voiceStatus.textContent = `已识别: ${finalTranscript}`;
+                    userInput.value = finalTranscript;
+                    
+                    // 自动提交或等待用户确认
+                    setTimeout(() => {
+                        if (userInput.value.trim()) {
+                            voiceStatus.textContent = '正在分析语音内容...';
+                            analyzeInput();
+                        }
+                    }, 1000);
+                }
+            };
+            
+            recognition.onerror = function(event) {
+                console.error('语音识别错误:', event.error);
+                isListening = false;
+                voiceBtn.classList.remove('listening');
+                
+                let errorMessage = '语音识别错误';
+                switch(event.error) {
+                    case 'no-speech':
+                        errorMessage = '没有检测到语音';
+                        break;
+                    case 'audio-capture':
+                        errorMessage = '无法访问麦克风';
+                        break;
+                    case 'not-allowed':
+                        errorMessage = '麦克风访问被拒绝';
+                        break;
+                    case 'network':
+                        errorMessage = '网络错误';
+                        break;
+                }
+                
+                voiceStatus.textContent = errorMessage;
+                statusText.textContent = '系统就绪';
+                
+                // 5秒后重置状态
+                setTimeout(() => {
+                    voiceStatus.textContent = '点击按钮开始语音输入';
+                }, 5000);
+            };
+            
+            recognition.onend = function() {
+                isListening = false;
+                voiceBtn.classList.remove('listening');
+                voiceStatus.textContent = '语音识别结束';
+                statusText.textContent = '系统就绪';
+                console.log('语音识别结束');
+                
+                // 5秒后重置状态
+                setTimeout(() => {
+                    voiceStatus.textContent = '点击按钮开始语音输入';
+                }, 5000);
+            };
+            
+            return true;
+        }
+        
+        function toggleSpeechRecognition() {
+            if (!recognition) {
+                if (!initSpeechRecognition()) {
+                    alert('您的浏览器不支持语音输入功能');
+                    return;
+                }
+            }
+            
+            if (isListening) {
+                stopSpeechRecognition();
+            } else {
+                startSpeechRecognition();
+            }
+        }
+        
+        function startSpeechRecognition() {
+            if (isListening) return;
+            
+            try {
+                recognition.start();
+            } catch (error) {
+                console.error('启动语音识别失败:', error);
+                voiceStatus.textContent = '启动失败，请重试';
+            }
+        }
+        
+        function stopSpeechRecognition() {
+            if (!isListening) return;
+            
+            try {
+                recognition.stop();
+            } catch (error) {
+                console.error('停止语音识别失败:', error);
+            }
+        }
+        
+        // 添加通过WebSocket进行实时语音识别的函数
+        async function startRealtimeSpeechRecognition() {
+            try {
+                // 请求麦克风权限
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // 创建音频上下文
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(stream);
+                
+                // 创建处理器（这里简化处理，实际需要将音频发送到后端）
+                const processor = audioContext.createScriptProcessor(4096, 1, 1);
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                
+                processor.onaudioprocess = function(e) {
+                    // 获取音频数据
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    
+                    // 检查是否有声音（简单的音量检测）
+                    let sum = 0;
+                    for (let i = 0; i < inputData.length; i++) {
+                        sum += Math.abs(inputData[i]);
+                    }
+                    const average = sum / inputData.length;
+                    
+                    // 如果检测到声音，可以发送到服务器进行识别
+                    if (average > 0.01) {
+                        // 这里可以添加发送音频数据到后端的逻辑
+                        console.log('检测到语音输入，音量:', average);
+                    }
+                };
+                
+                voiceStatus.textContent = '实时语音识别已开启';
+                
+                // 返回清理函数
+                return function() {
+                    processor.disconnect();
+                    source.disconnect();
+                    audioContext.close();
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+            } catch (error) {
+                console.error('实时语音识别失败:', error);
+                voiceStatus.textContent = '无法访问麦克风';
+                return null;
+            }
+        }
 
-            submitBtn.addEventListener('click', analyzeInput);
-            userInput.addEventListener('keypress', e => { if (e.key === 'Enter') analyzeInput(); });
-            cameraToggle.addEventListener('click', toggleCamera);
-            emotionToggle.addEventListener('click', toggleEmotionAnalysis);
-        });
+        /* =============== 数字人形象管理 =============== */
+        function loadSelectedAvatar() {
+            // 从 localStorage 获取选择的数字人 ID
+            let selectedAvatarId = localStorage.getItem('selectedAvatar');
+            
+            // 如果没有选择，默认使用形象1
+            if (!selectedAvatarId) {
+                selectedAvatarId = '1';
+                localStorage.setItem('selectedAvatar', selectedAvatarId);
+            }
+            
+            // 更新前端显示的图片
+            const avatarImgUrl = `/avatars/avatar${selectedAvatarId}.png`;
+            avatarImg.src = avatarImgUrl;
+            
+            // 更新页面标题显示当前形象
+            const avatarName = avatarNames[selectedAvatarId] || '智能助手';
+            pageTitle.textContent = `大学生心理分析数字人代理 - ${avatarName}`;
+            pageSubtitle.textContent = `当前形象: ${avatarName} | AI数字人结合表情分析，提供更精准的心理状态评估`;
+            
+            console.log(`已加载数字人形象 ${selectedAvatarId} (${avatarName})`);
+            
+            // 确保后端也使用这个形象
+            setSadTalkerImage(selectedAvatarId);
+        }
 
+        async function setSadTalkerImage(avatarId) {
+            try {
+                // 调用后端 API 更新 SadTalker 使用的图片
+                const response = await fetch(`${API_BASE_URL}/set_avatar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ avatar_id: avatarId })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    console.log(`后端已设置数字人形象为: ${avatarId}`);
+                } else {
+                    console.warn('设置后端数字人形象失败:', data.error);
+                }
+            } catch (error) {
+                console.warn('设置数字人形象请求失败:', error);
+            }
+        }
+
+        /* =============== 显示/隐藏辅助 =============== */
+        function showImg() {
+            avatarImg.style.display = 'block';
+            avatarVideo.style.display = 'none';
+            videoLoading.style.display = 'none';
+        }
+        
+        function showVideo() {
+            avatarImg.style.display = 'none';
+            avatarVideo.style.display = 'block';
+            videoLoading.style.display = 'none';
+        }
+
+        /* =============== 摄像头控制 =============== */
         async function startCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user' }
+                });
                 videoStream = stream;
                 cameraPreview.srcObject = stream;
                 cameraPreview.style.display = 'block';
                 cameraToggle.textContent = '关闭摄像头';
                 cameraActive = true;
                 emotionToggle.disabled = false;
-                statusText.textContent = "摄像头已开启";
+                statusText.textContent = '摄像头已开启';
             } catch (err) {
-                console.error("摄像头错误:", err);
-                alert("无法访问摄像头");
+                console.error('无法访问摄像头:', err);
+                alert('无法访问摄像头，请检查摄像头权限');
             }
         }
+        
         function stopCamera() {
-            if (videoStream) { videoStream.getTracks().forEach(t => t.stop()); videoStream = null; }
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
             cameraPreview.srcObject = null;
             cameraPreview.style.display = 'none';
             cameraToggle.textContent = '开启摄像头';
@@ -357,41 +547,66 @@
             emotionToggle.textContent = '开启表情分析';
             emotionToggle.disabled = true;
             emotionAnalysisActive = false;
-            statusText.textContent = "系统就绪";
+            statusText.textContent = '系统就绪';
         }
-        function toggleCamera() { cameraActive ? stopCamera() : startCamera(); }
+        
+        function toggleCamera() {
+            if (cameraActive) {
+                stopCamera();
+            } else {
+                startCamera();
+            }
+        }
 
+        /* =============== 表情分析控制 =============== */
         function startEmotionAnalysis() {
             if (!cameraActive) return;
             emotionAnalysisActive = true;
             emotionToggle.textContent = '停止表情分析';
             emotionDisplay.style.display = 'block';
-            statusText.textContent = "表情分析中...";
+            statusText.textContent = '表情分析中...';
             emotionInterval = setInterval(captureAndAnalyzeEmotion, 2000);
-            captureAndAnalyzeEmotion();
+            captureAndAnalyzeEmotion(); // 立即执行一次
         }
+        
         function stopEmotionAnalysis() {
             emotionAnalysisActive = false;
-            if (emotionInterval) { clearInterval(emotionInterval); emotionInterval = null; }
+            if (emotionInterval) {
+                clearInterval(emotionInterval);
+                emotionInterval = null;
+            }
             emotionDisplay.style.display = 'none';
-            statusText.textContent = "系统就绪";
+            statusText.textContent = '系统就绪';
         }
-        function toggleEmotionAnalysis() { emotionAnalysisActive ? stopEmotionAnalysis() : startEmotionAnalysis(); }
+        
+        function toggleEmotionAnalysis() {
+            if (emotionAnalysisActive) {
+                stopEmotionAnalysis();
+            } else {
+                startEmotionAnalysis();
+            }
+        }
 
+        /* =============== 捕获表情 =============== */
         async function captureAndAnalyzeEmotion() {
             if (!cameraActive || !emotionAnalysisActive) return;
+            
             try {
+                // 创建 canvas 捕获视频帧
                 const canvas = document.createElement('canvas');
-                canvas.width = 640; canvas.height = 480;
+                canvas.width = 640;
+                canvas.height = 480;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
                 const imageData = canvas.toDataURL('image/jpeg', 0.7);
 
+                // 发送到后端分析
                 const res = await fetch(`${API_BASE_URL}/analyze_emotion`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ image: imageData })
                 });
+                
                 const result = await res.json();
                 if (result.success) {
                     currentEmotion = result.dominant_emotion;
@@ -399,65 +614,171 @@
                     updateEmotionDisplay();
                     statusText.textContent = `检测到: ${emotionDescriptions[currentEmotion]}`;
                 }
-            } catch (e) { console.error('表情分析失败:', e); }
+            } catch (e) {
+                console.error('表情分析失败:', e);
+            }
         }
+        
         function updateEmotionDisplay() {
+            // 更新情绪结果文本
             emotionResult.textContent = `${emotionIcons[currentEmotion]} ${emotionDescriptions[currentEmotion]}`;
+            
+            // 清空情绪条
             emotionBars.innerHTML = '';
+            
+            // 按分数排序显示所有情绪
             Object.entries(currentEmotionScores)
                 .sort((a, b) => b[1] - a[1])
-                .forEach(([emo, score]) => {
-                    const box = document.createElement('div'); box.style.margin = '5px 0';
-                    box.innerHTML = `
-                    <div style="display:flex;justify-content:space-between"><span>${emotionIcons[emo] || '😐'} ${emotionDescriptions[emo] || emo}</span><span>${score.toFixed(1)}%</span></div>
-                    <div style="height:8px;background:#eee;border-radius:4px;overflow:hidden"><div style="height:100%;width:${score}%;background:${emotionColors[emo] || '#4a90e2'};transition:width .5s"></div></div>`;
-                    emotionBars.appendChild(box);
+                .forEach(([emotion, score]) => {
+                    const barContainer = document.createElement('div');
+                    barContainer.style.margin = '5px 0';
+                    
+                    barContainer.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span>${emotionIcons[emotion] || '😐'} ${emotionDescriptions[emotion] || emotion}</span>
+                            <span>${score.toFixed(1)}%</span>
+                        </div>
+                        <div style="height: 8px; background: #eee; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${score}%; background: ${emotionColors[emotion] || '#4a90e2'}; transition: width 0.5s;"></div>
+                        </div>
+                    `;
+                    
+                    emotionBars.appendChild(barContainer);
                 });
         }
 
+        /* =============== 心理分析请求 =============== */
         async function analyzeInput() {
             const text = userInput.value.trim();
             if (!text || isAnalyzing) return;
-            isAnalyzing = true; statusText.textContent = "分析中..."; submitBtn.disabled = true;
-            videoLoading.style.display = 'block'; avatarVideo.style.display = 'none';
-            responseContent.innerHTML = `<div style="text-align:center;padding:20px"><div class="spinner"></div><p>正在分析你的心理状态并生成数字人视频...</p></div>`;
+            
+            // 设置状态
+            isAnalyzing = true;
+            statusText.textContent = '分析中...';
+            submitBtn.disabled = true;
+            videoLoading.style.display = 'block';
+            showImg(); // 先确保显示图片，隐藏视频
+
+            // 显示加载状态
+            responseContent.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <div class="spinner"></div>
+                    <p>正在分析你的心理状态并生成数字人视频...</p>
+                </div>
+            `;
+            
             try {
-                const payload = { message: text, detected_emotion: currentEmotion, generate_video: true };
+                const payload = {
+                    message: text,
+                    detected_emotion: currentEmotion,
+                    generate_video: true
+                };
+                
                 const res = await fetch(`${API_BASE_URL}/analyze`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+                
                 const data = await res.json();
                 if (data.success) {
-                    let html = data.response +
-                        `<div style="margin-top:20px;padding:10px;background:rgba(110,203,245,.1);border-radius:8px;font-size:14px;color:#3498db">
-                        <strong>${data.model_source === 'local_psychology_model' ? '🧠 本地心理大模型' : '🤖 DeepSeek AI'} 生成</strong> | 情绪状态: ${emotionDescriptions[currentEmotion]} ${emotionIcons[currentEmotion]}
-                    </div>`;
+                    // 构建响应HTML
+                    let html = data.response;
+                    
+                    // 添加模型来源和情绪信息
+                    html += `
+                        <div style="margin-top: 20px; padding: 10px; background: rgba(110,203,245,.1); border-radius: 8px; font-size: 14px; color: #3498db">
+                            <strong>${data.model_source === 'local_psychology_model' ? '🧠 本地心理大模型' : '🤖 DeepSeek AI'} 生成</strong> | 
+                            情绪状态: ${emotionDescriptions[currentEmotion]} ${emotionIcons[currentEmotion]}
+                        </div>
+                    `;
+                    
                     responseContent.innerHTML = html;
 
+                    // 如果有生成的视频
                     if (data.video_generated && data.video_url) {
                         avatarVideo.src = data.video_url;
-                        avatarVideo.style.display = 'block';
-                        videoLoading.style.display = 'none';
+                        showVideo(); // 隐藏图片，显示视频
                         avatarVideo.play();
-                        statusText.textContent = "分析完成，视频已生成";
+                        statusText.textContent = '分析完成，视频已生成';
+                        
+                        // 视频播放结束后恢复显示图片
+                        avatarVideo.onended = () => {
+                            showImg();
+                        };
                     } else {
-                        videoLoading.style.display = 'none';
-                        if (data.video_error) console.warn('视频生成失败:', data.video_error);
-                        if (data.tts_error) console.warn('TTS 失败:', data.tts_error);
-                        statusText.textContent = "分析完成（视频生成失败）";
+                        showImg();
+                        if (data.video_error) {
+                            console.warn('视频生成失败:', data.video_error);
+                        }
+                        if (data.tts_error) {
+                            console.warn('TTS 失败:', data.tts_error);
+                        }
+                        statusText.textContent = '分析完成（视频生成失败）';
                     }
-                } else throw new Error(data.error || 'API 请求失败');
+                } else {
+                    throw new Error(data.error || 'API 请求失败');
+                }
             } catch (err) {
-                console.error(err);
-                videoLoading.style.display = 'none';
-                responseContent.innerHTML = `<div style="color:#e74c3c"><p>分析失败: ${err.message}</p><p>请检查网络连接后重试</p></div>`;
-                statusText.textContent = "分析失败";
+                console.error('分析失败:', err);
+                showImg();
+                responseContent.innerHTML = `
+                    <div style="color: #e74c3c;">
+                        <p><strong>分析失败:</strong> ${err.message}</p>
+                        <p>请检查网络连接后重试</p>
+                    </div>
+                `;
+                statusText.textContent = '分析失败';
             } finally {
-                isAnalyzing = false; submitBtn.disabled = false; userInput.value = ''; userInput.focus();
+                // 恢复状态
+                isAnalyzing = false;
+                submitBtn.disabled = false;
+                userInput.value = '';
+                userInput.focus();
             }
         }
+
+        /* =============== 初始化 =============== */
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. 首先加载选择的数字人形象
+            loadSelectedAvatar();
+            
+            // 2. 检查是否有选择数字人，如果没有则跳转到选择页面
+            if (!localStorage.getItem('selectedAvatar')) {
+                setTimeout(() => {
+                    alert('请先选择数字人形象');
+                    window.location.href = '/select';
+                }, 500);
+                return;
+            }
+            
+            // 3. 初始化语音识别
+            initSpeechRecognition();
+            
+            // 4. 绑定事件监听器
+            submitBtn.addEventListener('click', analyzeInput);
+            userInput.addEventListener('keypress', e => {
+                if (e.key === 'Enter') analyzeInput();
+            });
+            cameraToggle.addEventListener('click', toggleCamera);
+            emotionToggle.addEventListener('click', toggleEmotionAnalysis);
+            voiceBtn.addEventListener('click', toggleSpeechRecognition);
+            
+            // 5. 延迟询问是否开启摄像头
+            setTimeout(() => {
+                const enableCamera = confirm('是否开启摄像头进行表情分析？\n\n开启摄像头可以实时分析您的面部表情，提供更精准的心理分析。\n\n注意：摄像头数据仅用于本地表情分析，不会被保存或上传。');
+                if (enableCamera) {
+                    startCamera();
+                }
+            }, 1000);
+            
+            // 6. 显示语音输入说明
+            setTimeout(() => {
+                if (recognition) {
+                    voiceStatus.textContent = '点击"语音输入"按钮，用语音描述您的问题';
+                }
+            }, 1500);
+        });
     </script>
 </body>
 </html>
