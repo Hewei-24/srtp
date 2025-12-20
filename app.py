@@ -507,7 +507,7 @@ def generate_talking_video(audio_path: str) -> Dict[str, Any]:
             "--driven_audio", audio_path,
             "--source_image", SADTALKER_IMAGE,
             "--result_dir", SADTALKER_OUTPUT_DIR,
-            # "--still",
+            "--still",
             "--preprocess", "crop",
             # "--enhancer", "gfpgan",
             "--batch_size", "4"
