@@ -9,9 +9,10 @@
 4. RESTful API 接口
 5. 数字人形象选择功能
 6. 语音输入识别功能
+7. 用户上传自定义数字人形象功能
 
 作者: SRTP 项目组
-版本: 2.2
+版本: 2.3
 """
 
 import os
@@ -24,6 +25,7 @@ import glob
 import io
 import wave
 import tempfile
+import shutil
 from typing import Dict, Any, Optional
 
 import cv2
@@ -31,6 +33,7 @@ import numpy as np
 import requests
 from flask import Flask, request, jsonify, send_from_directory, redirect, url_for
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 # 语音识别相关导入
 try:
@@ -81,19 +84,23 @@ SADTALKER_OUTPUT_DIR = os.path.join(SADTALKER_DIR, "results")
 AUDIO_OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_output")
 AVATARS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatars")
 SPEECH_INPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "speech_input")
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")  # 新增：用户上传目录
 
 # 确保输出目录存在
 os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
 os.makedirs(SADTALKER_OUTPUT_DIR, exist_ok=True)
 os.makedirs(AVATARS_DIR, exist_ok=True)
 os.makedirs(SPEECH_INPUT_DIR, exist_ok=True)
+os.makedirs(UPLOADS_DIR, exist_ok=True)  # 新增：创建上传目录
+
+# 允许上传的图片格式
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
 
 # 检查 avatars 目录下是否有默认图片，如果没有则创建
 default_avatar_path = os.path.join(AVATARS_DIR, "avatar1.png")
 if not os.path.exists(default_avatar_path):
     # 将 SadTalker 的默认图片复制到 avatars 目录作为 avatar1
     if os.path.exists(SADTALKER_IMAGE):
-        import shutil
         shutil.copy2(SADTALKER_IMAGE, default_avatar_path)
         logger.info(f"已将默认数字人图片复制到: {default_avatar_path}")
     else:
@@ -123,16 +130,66 @@ DEFAULT_EMOTION_SCORES = {
 # 对话历史（全局变量）
 conversation_history: list = []
 
+# 当前使用的数字人图片（全局变量，默认为 SadTalker 默认图片）
+current_avatar_image = SADTALKER_IMAGE
+
+# ==================== 辅助函数 ====================
+def allowed_file(filename: str) -> bool:
+    """检查文件扩展名是否允许"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def process_uploaded_image(file_path: str, target_path: str) -> bool:
+    """
+    处理上传的图片，确保适合 SadTalker 使用
+
+    Args:
+        file_path: 原始文件路径
+        target_path: 目标文件路径
+
+    Returns:
+        处理是否成功
+    """
+    try:
+        # 读取图片
+        img = cv2.imread(file_path)
+        if img is None:
+            logger.error(f"无法读取图片: {file_path}")
+            return False
+
+        # 检查图片尺寸，如果太大则调整
+        height, width = img.shape[:2]
+        max_size = 1024
+
+        if height > max_size or width > max_size:
+            # 计算缩放比例
+            scale = max_size / max(height, width)
+            new_height = int(height * scale)
+            new_width = int(width * scale)
+
+            # 调整尺寸
+            img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+            logger.info(f"调整图片尺寸: {width}x{height} -> {new_width}x{new_height}")
+
+        # 保存为PNG格式（SadTalker 推荐格式）
+        cv2.imwrite(target_path, img)
+        logger.info(f"图片已保存为: {target_path}")
+
+        return True
+
+    except Exception as e:
+        logger.error(f"处理图片失败: {str(e)}")
+        return False
 
 # ==================== 语音识别模块 ====================
 def recognize_speech_from_audio(audio_data: bytes, audio_format: str = "webm") -> Dict[str, Any]:
     """
     从音频数据中识别语音
-    
+
     Args:
         audio_data: 音频字节数据
         audio_format: 音频格式（webm, wav, mp3等）
-        
+
     Returns:
         包含识别结果的字典
     """
@@ -142,15 +199,15 @@ def recognize_speech_from_audio(audio_data: bytes, audio_format: str = "webm") -
             "error": "语音识别库未安装",
             "text": ""
         }
-    
+
     try:
         recognizer = sr.Recognizer()
-        
+
         # 创建临时文件保存音频
         with tempfile.NamedTemporaryFile(suffix=f".{audio_format}", delete=False) as tmp_file:
             tmp_file.write(audio_data)
             tmp_file_path = tmp_file.name
-        
+
         try:
             # 使用 pydub 加载音频文件
             if audio_format == "webm":
@@ -162,29 +219,29 @@ def recognize_speech_from_audio(audio_data: bytes, audio_format: str = "webm") -
             else:
                 # 尝试自动检测格式
                 audio = AudioSegment.from_file(tmp_file_path)
-            
+
             # 转换为 wav 格式（SpeechRecognition 需要）
             wav_data = io.BytesIO()
             audio.export(wav_data, format="wav")
             wav_data.seek(0)
-            
+
             # 使用 SpeechRecognition 识别
             with sr.AudioFile(wav_data) as source:
                 # 调整环境噪声
                 recognizer.adjust_for_ambient_noise(source, duration=0.5)
                 audio_data = recognizer.record(source)
-                
+
                 # 识别语音
                 text = recognizer.recognize_google(audio_data, language="zh-CN")
-                
+
                 logger.info(f"语音识别成功: {text}")
-                
+
                 return {
                     "success": True,
                     "text": text,
                     "confidence": 0.9  # 暂时使用固定值
                 }
-                
+
         except sr.UnknownValueError:
             return {
                 "success": False,
@@ -211,7 +268,7 @@ def recognize_speech_from_audio(audio_data: bytes, audio_format: str = "webm") -
                 os.unlink(tmp_file_path)
             except:
                 pass
-                
+
     except Exception as e:
         logger.error(f"语音识别失败: {str(e)}")
         return {
@@ -224,11 +281,11 @@ def recognize_speech_from_audio(audio_data: bytes, audio_format: str = "webm") -
 def save_audio_file(audio_data: bytes, filename: str) -> str:
     """
     保存音频文件到本地
-    
+
     Args:
         audio_data: 音频字节数据
         filename: 文件名
-        
+
     Returns:
         保存的文件路径
     """
@@ -618,20 +675,25 @@ def text_to_speech(text: str) -> Dict[str, Any]:
 
 
 # ==================== SadTalker 视频生成模块 ====================
-def generate_talking_video(audio_path: str) -> Dict[str, Any]:
+def generate_talking_video(audio_path: str, image_path: str = None) -> Dict[str, Any]:
     """
     使用 SadTalker 生成数字人说话视频
 
     Args:
         audio_path: 音频文件的绝对路径
+        image_path: 数字人图片路径（可选，默认使用当前设置的图片）
 
     Returns:
         包含视频文件路径的字典
     """
     try:
+        # 使用指定的图片或默认图片
+        if image_path is None:
+            image_path = current_avatar_image
+
         # 检查文件是否存在
-        if not os.path.exists(SADTALKER_IMAGE):
-            logger.error(f"数字人图片不存在: {SADTALKER_IMAGE}")
+        if not os.path.exists(image_path):
+            logger.error(f"数字人图片不存在: {image_path}")
             return {"success": False, "error": "数字人图片不存在"}
 
         if not os.path.exists(audio_path):
@@ -639,7 +701,7 @@ def generate_talking_video(audio_path: str) -> Dict[str, Any]:
             return {"success": False, "error": "音频文件不存在"}
 
         logger.info("开始生成数字人视频...")
-        logger.info(f"图片: {SADTALKER_IMAGE}")
+        logger.info(f"图片: {image_path}")
         logger.info(f"音频: {audio_path}")
 
         # 检测 SadTalker 目录下的虚拟环境
@@ -656,7 +718,7 @@ def generate_talking_video(audio_path: str) -> Dict[str, Any]:
         cmd = [
             python_exec, "inference.py",
             "--driven_audio", audio_path,
-            "--source_image", SADTALKER_IMAGE,
+            "--source_image", image_path,
             "--result_dir", SADTALKER_OUTPUT_DIR,
             "--still",
             "--preprocess", "crop",
@@ -774,48 +836,198 @@ def serve_avatar(filename):
         return jsonify({"error": f"图片 {filename} 未找到"}), 404
 
 
+@app.route('/uploads/<filename>')
+def serve_uploaded_avatar(filename):
+    """
+    提供用户上传的数字人图片服务
+    """
+    try:
+        return send_from_directory('uploads', filename)
+    except FileNotFoundError:
+        logger.error(f"上传的图片未找到: {filename}")
+        return jsonify({"error": f"图片 {filename} 未找到"}), 404
+
+
 @app.route('/api/set_avatar', methods=['POST'])
 def set_sadtalker_image():
     """
     设置 SadTalker 使用的数字人图片
     """
+    global current_avatar_image
+
     try:
         data = request.get_json()
         avatar_id = data.get('avatar_id', '1')
-        
-        # 根据 avatar_id 设置对应的图片
-        avatar_images = {
-            '1': 'avatar1.png',
-            '2': 'avatar2.png', 
-            '3': 'avatar3.png'
-        }
-        
-        avatar_filename = avatar_images.get(avatar_id, 'avatar1.png')
-        new_image_path = os.path.join('avatars', avatar_filename)
-        
-        # 检查文件是否存在
-        if os.path.exists(new_image_path):
-            # 更新 SadTalker 配置中的图片路径
-            global SADTALKER_IMAGE
-            SADTALKER_IMAGE = new_image_path
-            logger.info(f"已更新 SadTalker 图片为: {new_image_path}")
-            
-            # 如果需要，也复制到 SadTalker 目录
-            sadtalker_dest = os.path.join(SADTALKER_DIR, "my_photo.png")
-            try:
-                import shutil
-                shutil.copy2(new_image_path, sadtalker_dest)
-                logger.info(f"已复制到 SadTalker 目录: {sadtalker_dest}")
-            except Exception as e:
-                logger.warning(f"复制到 SadTalker 目录失败: {str(e)}")
-            
-            return jsonify({"success": True, "message": f"已切换为形象 {avatar_id}"})
+
+        if avatar_id.startswith('upload_'):
+            # 使用用户上传的图片
+            uploaded_filename = avatar_id.replace('upload_', '')
+            avatar_path = os.path.join(UPLOADS_DIR, uploaded_filename)
+
+            if os.path.exists(avatar_path):
+                # 将上传的图片复制到 SadTalker 目录
+                sadtalker_dest = os.path.join(SADTALKER_DIR, "my_photo.png")
+                try:
+                    shutil.copy2(avatar_path, sadtalker_dest)
+                    current_avatar_image = sadtalker_dest
+                    logger.info(f"已设置上传的图片为数字人形象: {uploaded_filename}")
+
+                    return jsonify({
+                        "success": True,
+                        "message": f"已使用您上传的图片",
+                        "image_url": f"/uploads/{uploaded_filename}"
+                    })
+                except Exception as e:
+                    logger.warning(f"复制上传图片失败: {str(e)}")
+                    return jsonify({"success": False, "error": "设置上传图片失败"}), 500
+            else:
+                logger.error(f"上传的图片不存在: {avatar_path}")
+                return jsonify({"success": False, "error": "上传的图片不存在"}), 404
         else:
-            logger.error(f"数字人图片不存在: {new_image_path}")
-            return jsonify({"success": False, "error": "图片文件不存在"}), 404
-            
+            # 使用预置的数字人图片
+            avatar_images = {
+                '1': 'avatar1.png',
+                '2': 'avatar2.png',
+                '3': 'avatar3.png'
+            }
+
+            avatar_filename = avatar_images.get(avatar_id, 'avatar1.png')
+            new_image_path = os.path.join('avatars', avatar_filename)
+
+            # 检查文件是否存在
+            if os.path.exists(new_image_path):
+                # 将预置图片复制到 SadTalker 目录
+                sadtalker_dest = os.path.join(SADTALKER_DIR, "my_photo.png")
+                try:
+                    shutil.copy2(new_image_path, sadtalker_dest)
+                    current_avatar_image = sadtalker_dest
+                    logger.info(f"已更新 SadTalker 图片为: {new_image_path}")
+
+                    return jsonify({
+                        "success": True,
+                        "message": f"已切换为预置形象 {avatar_id}",
+                        "image_url": f"/avatars/{avatar_filename}"
+                    })
+                except Exception as e:
+                    logger.warning(f"复制图片失败: {str(e)}")
+                    return jsonify({"success": False, "error": "设置图片失败"}), 500
+            else:
+                logger.error(f"数字人图片不存在: {new_image_path}")
+                return jsonify({"success": False, "error": "图片文件不存在"}), 404
+
     except Exception as e:
         logger.error(f"设置数字人图片失败: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/upload_avatar', methods=['POST'])
+def upload_avatar():
+    """
+    上传用户自定义数字人图片
+    """
+    try:
+        # 检查是否有文件上传
+        if 'avatar' not in request.files:
+            return jsonify({"success": False, "error": "没有上传文件"}), 400
+
+        file = request.files['avatar']
+
+        # 检查文件名
+        if file.filename == '':
+            return jsonify({"success": False, "error": "没有选择文件"}), 400
+
+        # 检查文件格式
+        if not allowed_file(file.filename):
+            return jsonify({"success": False, "error": "不支持的文件格式。请上传图片文件 (png, jpg, jpeg, gif, bmp, webp)"}), 400
+
+        # 生成安全的文件名
+        filename = secure_filename(file.filename)
+        # 添加时间戳和随机字符串避免重名
+        name, ext = os.path.splitext(filename)
+        unique_filename = f"{name}_{uuid.uuid4().hex[:8]}{ext}"
+        file_path = os.path.join(UPLOADS_DIR, unique_filename)
+
+        # 保存原始文件
+        file.save(file_path)
+        logger.info(f"用户上传图片保存到: {file_path}")
+
+        # 处理图片（调整尺寸等）
+        processed_filename = f"processed_{unique_filename}"
+        processed_path = os.path.join(UPLOADS_DIR, processed_filename)
+
+        if process_uploaded_image(file_path, processed_path):
+            # 处理成功，使用处理后的文件
+            final_path = processed_path
+            final_filename = processed_filename
+            # 删除原始文件
+            try:
+                os.remove(file_path)
+            except:
+                pass
+        else:
+            # 处理失败，使用原始文件
+            final_path = file_path
+            final_filename = unique_filename
+            logger.warning(f"图片处理失败，使用原始文件: {final_path}")
+
+        # 生成上传成功的响应
+        response_data = {
+            "success": True,
+            "message": "图片上传成功",
+            "filename": final_filename,
+            "image_url": f"/uploads/{final_filename}",
+            "avatar_id": f"upload_{final_filename}"
+        }
+
+        logger.info(f"用户图片上传成功: {final_filename}")
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"上传图片失败: {str(e)}")
+        return jsonify({"success": False, "error": f"上传失败: {str(e)}"}), 500
+
+
+@app.route('/api/get_avatars', methods=['GET'])
+def get_available_avatars():
+    """
+    获取可用的数字人形象列表
+    """
+    try:
+        avatars = []
+
+        # 添加预置形象
+        for i in range(1, 4):
+            avatar_file = f"avatar{i}.png"
+            avatar_path = os.path.join(AVATARS_DIR, avatar_file)
+            if os.path.exists(avatar_path):
+                avatars.append({
+                    "id": str(i),
+                    "name": f"预置形象 {i}",
+                    "type": "preset",
+                    "image_url": f"/avatars/{avatar_file}"
+                })
+
+        # 添加上传的形象
+        upload_files = os.listdir(UPLOADS_DIR)
+        for filename in upload_files:
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
+                # 跳过已处理的文件（如果有processed_前缀）
+                if not filename.startswith('processed_'):
+                    avatars.append({
+                        "id": f"upload_{filename}",
+                        "name": f"我的形象: {filename[:20]}...",
+                        "type": "uploaded",
+                        "image_url": f"/uploads/{filename}"
+                    })
+
+        return jsonify({
+            "success": True,
+            "avatars": avatars,
+            "total": len(avatars)
+        })
+
+    except Exception as e:
+        logger.error(f"获取形象列表失败: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -824,25 +1036,25 @@ def set_sadtalker_image():
 def recognize_speech():
     """
     语音识别接口
-    
+
     支持上传音频文件进行语音识别
     """
     try:
         logger.info("收到语音识别请求")
-        
+
         # 检查是否安装了语音识别库
         if not SPEECH_RECOGNITION_AVAILABLE:
             return jsonify({
                 "success": False,
                 "error": "语音识别功能未启用，请安装依赖: pip install SpeechRecognition pydub"
             }), 501
-        
+
         # 检查请求数据
         if 'audio' not in request.files and 'audio_data' not in request.form:
             return jsonify({"success": False, "error": "没有提供音频数据"}), 400
-        
+
         audio_format = request.form.get('format', 'webm')
-        
+
         if 'audio' in request.files:
             # 处理文件上传
             audio_file = request.files['audio']
@@ -853,24 +1065,24 @@ def recognize_speech():
             if ',' in audio_data_str:
                 audio_data_str = audio_data_str.split(',')[1]
             audio_data = base64.b64decode(audio_data_str)
-        
+
         # 识别语音
         result = recognize_speech_from_audio(audio_data, audio_format)
-        
+
         if result["success"]:
             # 保存音频文件（可选）
             filename = f"speech_{uuid.uuid4().hex[:8]}.{audio_format}"
             save_audio_file(audio_data, filename)
-            
+
             result["audio_url"] = f"/api/speech/{filename}"
             result["timestamp"] = datetime.datetime.now().isoformat()
-            
+
             logger.info(f"语音识别成功: {result['text'][:50]}...")
         else:
             logger.warning(f"语音识别失败: {result.get('error', '未知错误')}")
-        
+
         return jsonify(result)
-        
+
     except Exception as e:
         logger.error(f"语音识别接口错误: {str(e)}")
         return jsonify({
@@ -905,6 +1117,8 @@ def analyze():
     Returns:
         JSON 格式的分析结果，包含视频 URL
     """
+    global current_avatar_image
+
     try:
         data = request.get_json()
         user_input = data.get('message', '').strip()
@@ -940,9 +1154,9 @@ def analyze():
                     audio_path = tts_result["audio_path"]
                     result["audio_url"] = f"/api/audio/{tts_result['audio_filename']}"
 
-                    # 步骤2: SadTalker 生成视频
+                    # 步骤2: SadTalker 生成视频（使用当前设置的数字人图片）
                     logger.info("开始生成数字人视频...")
-                    video_result = generate_talking_video(audio_path)
+                    video_result = generate_talking_video(audio_path, current_avatar_image)
 
                     if video_result["success"]:
                         result["video_url"] = f"/api/video/{video_result['video_filename']}"
@@ -1136,7 +1350,7 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "service": "大学生心理分析数字人代理",
-        "version": "2.2",
+        "version": "2.3",
         "timestamp": datetime.datetime.now().isoformat(),
         "features": {
             "psychological_analysis": True,
@@ -1144,6 +1358,7 @@ def health_check():
             "real_time_camera": True,
             "deepseek_api": True,
             "avatar_selection": True,
+            "avatar_upload": True,
             "speech_input": SPEECH_RECOGNITION_AVAILABLE
         }
     })
@@ -1194,7 +1409,7 @@ def debug_info():
         "deepface_available": DEEPFACE_AVAILABLE,
         "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
         "api_key_set": bool(DEEPSEEK_API_KEY),
-        "sadtalker_image": SADTALKER_IMAGE,
+        "sadtalker_image": current_avatar_image,
         "timestamp": datetime.datetime.now().isoformat()
     })
 
@@ -1209,11 +1424,12 @@ def favicon():
 if __name__ == '__main__':
     # 打印启动信息
     print("=" * 60)
-    print("大学生心理分析数字人代理 v2.2")
+    print("大学生心理分析数字人代理 v2.3")
     print("=" * 60)
     print(f"📱 服务地址: http://localhost:5000")
     print(f"👤 形象选择: http://localhost:5000/select")
     print(f"💬 主页面: http://localhost:5000/index")
+    print(f"📤 新增功能: 用户可上传自定义数字人形象")
     print(f"🎤 语音输入: 支持（需要浏览器支持语音识别）")
     print(f"❤️  健康检查: http://localhost:5000/api/health")
     print(f"📊 模型状态: http://localhost:5000/api/model/status")
@@ -1224,6 +1440,8 @@ if __name__ == '__main__':
     print("  POST /api/analyze_local  - 本地模型分析")
     print("  POST /api/analyze_emotion - 表情识别")
     print("  POST /api/set_avatar     - 设置数字人形象")
+    print("  POST /api/upload_avatar  - 上传自定义形象")
+    print("  GET  /api/get_avatars    - 获取可用形象列表")
     print("  POST /api/recognize_speech - 语音识别")
     print("  GET  /api/health         - 健康检查")
     print("  GET  /api/model/status   - 模型状态")

@@ -12,30 +12,41 @@
             min-height:100vh;
             background:linear-gradient(135deg,#a8edea 0%,#fed6e3 100%);
             font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
-            display:flex;
-            align-items:center;
-            justify-content:center;
         }
         .wrapper{
             text-align:center;
-            background:rgba(255,255,255,.9);
+            background:rgba(255,255,255,.95);
             padding:40px 50px;
             border-radius:20px;
             box-shadow:0 8px 25px rgba(0,0,0,.1);
+            max-width:1200px;
+            margin:20px auto;
         }
         .wrapper h1{
             margin-bottom:30px;
             color:#4a90e2;
         }
+
+        .section-title {
+            font-size: 22px;
+            color: #4a90e2;
+            margin: 30px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+            text-align: left;
+        }
+
         .avatars{
             display:flex;
             gap:30px;
             justify-content:center;
             flex-wrap:wrap;
+            margin-bottom: 30px;
         }
         .avatar-card{
             cursor:pointer;
             transition:transform .3s;
+            width: 180px;
         }
         .avatar-card:hover{
             transform:translateY(-8px);
@@ -52,67 +63,647 @@
         .avatar-card p{
             margin-top:10px;
             color:#555;
+            font-size: 14px;
+        }
+
+        /* 上传区域样式 */
+        .upload-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 3px dashed #4a90e2;
+            border-radius: 15px;
+            padding: 40px;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(74, 144, 226, 0.05);
+        }
+
+        .upload-area:hover {
+            background: rgba(74, 144, 226, 0.1);
+            border-color: #3a80d2;
+        }
+
+        .upload-area.dragover {
+            background: rgba(74, 144, 226, 0.2);
+            border-color: #2a70c2;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #4a90e2;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .upload-btn {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .upload-btn:hover {
+            background: #3a80d2;
+            transform: translateY(-2px);
+        }
+
+        .upload-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .preview-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .preview-image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,.2);
+            margin-bottom: 15px;
+        }
+
+        .uploaded-avatars {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .uploaded-card {
+            width: 150px;
+        }
+
+        .uploaded-card img {
+            width: 140px;
+            height: 140px;
+        }
+
+        .status-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .status-success {
+            background: rgba(46, 204, 113, 0.2);
+            color: #27ae60;
+            border: 1px solid #2ecc71;
+        }
+
+        .status-error {
+            background: rgba(231, 76, 60, 0.2);
+            color: #c0392b;
+            border: 1px solid #e74c3c;
+        }
+
+        .status-loading {
+            background: rgba(52, 152, 219, 0.2);
+            color: #2980b9;
+            border: 1px solid #3498db;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4a90e2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .action-buttons {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .back-btn {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #7f8c8d;
+            transform: translateY(-2px);
+        }
+
+        .continue-btn {
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .continue-btn:hover {
+            background: #27ae60;
+            transform: translateY(-2px);
+        }
+
+        .continue-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+            .wrapper {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .avatars {
+                gap: 15px;
+            }
+
+            .avatar-card, .uploaded-card {
+                width: 140px;
+            }
+
+            .avatar-card img, .uploaded-card img {
+                width: 120px;
+                height: 120px;
+            }
         }
     </style>
 </head>
 <body>
 <div class="wrapper">
-    <h1>请选择你喜欢的数字人形象</h1>
-    <div class="avatars">
-        <div class="avatar-card" data-id="1">
-            <img src="/avatars/avatar1.png" alt="数字人1">
-            <p>形象 1 - 智能助手</p>
+    <h1>选择数字人形象</h1>
+
+    <!-- 预置形象 -->
+    <div class="section-title">🎨 预置数字人形象</div>
+    <div class="avatars" id="preset-avatars">
+        <!-- 预置形象会通过JS动态加载 -->
+    </div>
+
+    <!-- 已上传的形象 -->
+    <div class="section-title" id="uploaded-title" style="display:none;">📁 您上传的形象</div>
+    <div class="avatars uploaded-avatars" id="uploaded-avatars">
+        <!-- 已上传的形象会通过JS动态加载 -->
+    </div>
+
+    <!-- 上传新形象 -->
+    <div class="section-title">📤 上传自定义形象</div>
+    <div class="upload-section">
+        <div class="upload-area" id="drop-area">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">点击或拖拽图片到此处上传</div>
+            <div class="upload-hint">支持 PNG、JPG、JPEG、GIF、BMP、WEBP 格式</div>
+            <input type="file" id="file-input" class="file-input" accept=".png,.jpg,.jpeg,.gif,.bmp,.webp">
+            <button class="upload-btn" id="browse-btn">
+                <span>选择图片</span>
+            </button>
         </div>
-        <div class="avatar-card" data-id="2">
-            <img src="/avatars/avatar2.png" alt="数字人2">
-            <p>形象 2 - 心理咨询师</p>
+
+        <!-- 预览区域 -->
+        <div class="preview-container" id="preview-container" style="display:none;">
+            <img id="preview-image" class="preview-image" src="" alt="预览">
+            <div id="upload-status" class="status-message"></div>
+            <button class="upload-btn" id="confirm-upload-btn" style="display:none;">
+                <span>确认上传</span>
+            </button>
         </div>
-        <div class="avatar-card" data-id="3">
-            <img src="/avatars/avatar3.png" alt="数字人3">
-            <p>形象 3 - 心灵导师</p>
-        </div>
+
+        <!-- 状态消息 -->
+        <div id="status-message" class="status-message" style="display:none;"></div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="action-buttons">
+        <a href="/" class="back-btn">返回首页</a>
+        <button class="continue-btn" id="continue-btn" disabled>继续使用当前形象</button>
+    </div>
+
+    <!-- 当前选择显示 -->
+    <div id="current-selection" style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 10px; display: none;">
+        <h3 style="color: #4a90e2; margin-bottom: 10px;">当前选择的形象</h3>
+        <div id="selected-avatar-info"></div>
     </div>
 </div>
 
 <script>
-    // 点击任意卡片即保存选择并跳转到主页面
-    document.querySelectorAll('.avatar-card').forEach(card=>{
-        card.addEventListener('click',()=>{
-            const id = card.dataset.id;
-            // 保存到 localStorage
-            localStorage.setItem('selectedAvatar', id);
-            
-            // 发送请求到后端设置 SadTalker 图片
-            fetch('/api/set_avatar', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ avatar_id: id })
-            }).then(response => response.json())
-              .then(data => {
-                  if (data.success) {
-                      console.log(`已选择数字人形象 ${id}`);
-                  } else {
-                      console.warn('设置数字人形象失败:', data.error);
-                  }
-                  // 跳转到主页面
-                  location.href='/index';
-              })
-              .catch(error => {
-                  console.error('请求失败:', error);
-                  // 即使失败也跳转
-                  location.href='/index';
-              });
-        });
-    });
-    
-    // 页面加载时检查是否有已选择的形象
-    document.addEventListener('DOMContentLoaded', () => {
-        const selectedAvatar = localStorage.getItem('selectedAvatar');
-        if (selectedAvatar) {
-            console.log(`当前已选择的形象: ${selectedAvatar}`);
+    // 全局变量
+    let selectedAvatarId = null;
+    let selectedAvatarType = null; // 'preset' 或 'uploaded'
+    let selectedAvatarName = null;
+    let selectedAvatarUrl = null;
+    let uploadedAvatars = [];
+    let currentFile = null;
+    let isUploading = false;
+
+    const API_BASE_URL = 'http://localhost:5000/api';
+
+    // DOM 元素
+    const presetAvatarsContainer = document.getElementById('preset-avatars');
+    const uploadedAvatarsContainer = document.getElementById('uploaded-avatars');
+    const uploadedTitle = document.getElementById('uploaded-title');
+    const dropArea = document.getElementById('drop-area');
+    const fileInput = document.getElementById('file-input');
+    const browseBtn = document.getElementById('browse-btn');
+    const previewContainer = document.getElementById('preview-container');
+    const previewImage = document.getElementById('preview-image');
+    const uploadStatus = document.getElementById('upload-status');
+    const confirmUploadBtn = document.getElementById('confirm-upload-btn');
+    const statusMessage = document.getElementById('status-message');
+    const continueBtn = document.getElementById('continue-btn');
+    const currentSelection = document.getElementById('current-selection');
+    const selectedAvatarInfo = document.getElementById('selected-avatar-info');
+
+    // 检查是否有已选择的形象
+    function checkExistingSelection() {
+        const savedAvatarId = localStorage.getItem('selectedAvatar');
+        const savedAvatarType = localStorage.getItem('selectedAvatarType');
+        const savedAvatarName = localStorage.getItem('selectedAvatarName');
+        const savedAvatarUrl = localStorage.getItem('selectedAvatarUrl');
+
+        if (savedAvatarId && savedAvatarType && savedAvatarName && savedAvatarUrl) {
+            selectedAvatarId = savedAvatarId;
+            selectedAvatarType = savedAvatarType;
+            selectedAvatarName = savedAvatarName;
+            selectedAvatarUrl = savedAvatarUrl;
+
+            updateSelectionDisplay();
+            enableContinueButton();
         }
+    }
+
+    // 更新选择显示
+    function updateSelectionDisplay() {
+        if (selectedAvatarId && selectedAvatarName && selectedAvatarUrl) {
+            selectedAvatarInfo.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <img src="${selectedAvatarUrl}" alt="${selectedAvatarName}"
+                         style="width: 80px; height: 80px; object-fit: cover; border-radius: 10px;">
+                    <div>
+                        <h4 style="margin: 0 0 5px 0; color: #333;">${selectedAvatarName}</h4>
+                        <p style="margin: 0; color: #666; font-size: 14px;">ID: ${selectedAvatarId}</p>
+                    </div>
+                </div>
+            `;
+            currentSelection.style.display = 'block';
+        }
+    }
+
+    // 启用继续按钮
+    function enableContinueButton() {
+        continueBtn.disabled = false;
+        continueBtn.textContent = `使用 ${selectedAvatarName}`;
+    }
+
+    // 禁用继续按钮
+    function disableContinueButton() {
+        continueBtn.disabled = true;
+        continueBtn.textContent = '继续使用当前形象';
+    }
+
+    // 加载预置形象
+    function loadPresetAvatars() {
+        const presetAvatars = [
+            { id: '1', name: '智能助手', image: '/avatars/avatar1.png' },
+            { id: '2', name: '心理咨询师', image: '/avatars/avatar2.png' },
+            { id: '3', name: '心灵导师', image: '/avatars/avatar3.png' }
+        ];
+
+        presetAvatars.forEach(avatar => {
+            const card = document.createElement('div');
+            card.className = 'avatar-card';
+            card.dataset.id = avatar.id;
+            card.dataset.type = 'preset';
+
+            card.innerHTML = `
+                <img src="${avatar.image}" alt="${avatar.name}" onerror="this.src='/avatars/avatar1.png'">
+                <p>${avatar.name}</p>
+            `;
+
+            card.addEventListener('click', () => {
+                selectAvatar(avatar.id, 'preset', avatar.name, avatar.image);
+            });
+
+            presetAvatarsContainer.appendChild(card);
+        });
+    }
+
+    // 加载已上传的形象
+    function loadUploadedAvatars() {
+        fetch(`${API_BASE_URL}/get_avatars`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    uploadedAvatars = data.avatars.filter(avatar => avatar.type === 'uploaded');
+
+                    if (uploadedAvatars.length > 0) {
+                        uploadedTitle.style.display = 'block';
+                        uploadedAvatarsContainer.innerHTML = '';
+
+                        uploadedAvatars.forEach(avatar => {
+                            const card = document.createElement('div');
+                            card.className = 'avatar-card uploaded-card';
+                            card.dataset.id = avatar.id;
+                            card.dataset.type = 'uploaded';
+
+                            card.innerHTML = `
+                                <img src="${avatar.image_url}" alt="${avatar.name}"
+                                     onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:140px;height:140px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;border-radius:15px;\\'><span style=\\'color:#999;\\'>图片加载失败</span></div>'">
+                                <p>${avatar.name}</p>
+                            `;
+
+                            card.addEventListener('click', () => {
+                                selectAvatar(avatar.id, 'uploaded', avatar.name, avatar.image_url);
+                            });
+
+                            uploadedAvatarsContainer.appendChild(card);
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('加载已上传形象失败:', error);
+            });
+    }
+
+    // 选择形象
+    function selectAvatar(id, type, name, imageUrl) {
+        // 移除之前的选择样式
+        document.querySelectorAll('.avatar-card').forEach(card => {
+            card.style.boxShadow = '0 4px 15px rgba(0,0,0,.1)';
+            card.style.border = 'none';
+        });
+
+        // 添加当前选择样式
+        const selectedCard = document.querySelector(`.avatar-card[data-id="${id}"]`);
+        if (selectedCard) {
+            selectedCard.style.boxShadow = '0 8px 25px rgba(74, 144, 226, 0.5)';
+            selectedCard.style.border = '3px solid #4a90e2';
+        }
+
+        // 更新选择
+        selectedAvatarId = id;
+        selectedAvatarType = type;
+        selectedAvatarName = name;
+        selectedAvatarUrl = imageUrl;
+
+        // 更新显示
+        updateSelectionDisplay();
+        enableContinueButton();
+
+        // 保存到本地存储（临时）
+        localStorage.setItem('tempSelectedAvatar', id);
+        localStorage.setItem('tempSelectedAvatarType', type);
+        localStorage.setItem('tempSelectedAvatarName', name);
+        localStorage.setItem('tempSelectedAvatarUrl', imageUrl);
+
+        showStatusMessage(`已选择: ${name}`, 'success');
+    }
+
+    // 显示状态消息
+    function showStatusMessage(message, type = 'info') {
+        statusMessage.textContent = message;
+        statusMessage.className = `status-message status-${type}`;
+        statusMessage.style.display = 'block';
+
+        // 3秒后自动隐藏
+        if (type !== 'loading') {
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 3000);
+        }
+    }
+
+    // 上传图片
+    function uploadImage(file) {
+        if (isUploading) return;
+
+        isUploading = true;
+        showStatusMessage('正在上传图片...', 'loading');
+
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        fetch(`${API_BASE_URL}/upload_avatar`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            isUploading = false;
+
+            if (data.success) {
+                showStatusMessage('图片上传成功！', 'success');
+
+                // 清空预览
+                previewContainer.style.display = 'none';
+                previewImage.src = '';
+                uploadStatus.textContent = '';
+                confirmUploadBtn.style.display = 'none';
+                currentFile = null;
+
+                // 重新加载已上传的形象
+                loadUploadedAvatars();
+
+                // 自动选择新上传的形象
+                setTimeout(() => {
+                    selectAvatar(data.avatar_id, 'uploaded', `我的形象: ${data.filename.substring(0, 15)}...`, data.image_url);
+                }, 500);
+            } else {
+                showStatusMessage(`上传失败: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            isUploading = false;
+            console.error('上传错误:', error);
+            showStatusMessage('上传失败，请检查网络连接', 'error');
+        });
+    }
+
+    // 预览图片
+    function previewImageFile(file) {
+        if (!file.type.match('image.*')) {
+            showStatusMessage('请选择图片文件', 'error');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) { // 10MB限制
+            showStatusMessage('图片大小不能超过10MB', 'error');
+            return;
+        }
+
+        currentFile = file;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImage.src = e.target.result;
+            previewContainer.style.display = 'block';
+            uploadStatus.textContent = `文件: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            uploadStatus.className = 'status-message status-info';
+            confirmUploadBtn.style.display = 'inline-flex';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // 继续到主页面
+    function continueToMainPage() {
+        if (!selectedAvatarId || !selectedAvatarType) {
+            showStatusMessage('请先选择一个数字人形象', 'error');
+            return;
+        }
+
+        // 保存到本地存储
+        localStorage.setItem('selectedAvatar', selectedAvatarId);
+        localStorage.setItem('selectedAvatarType', selectedAvatarType);
+        localStorage.setItem('selectedAvatarName', selectedAvatarName);
+        localStorage.setItem('selectedAvatarUrl', selectedAvatarUrl);
+
+        // 发送请求到后端设置 SadTalker 图片
+        showStatusMessage('正在设置数字人形象...', 'loading');
+
+        fetch(`${API_BASE_URL}/set_avatar`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ avatar_id: selectedAvatarId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatusMessage('形象设置成功，正在跳转...', 'success');
+                setTimeout(() => {
+                    window.location.href = '/index';
+                }, 1000);
+            } else {
+                showStatusMessage(`设置失败: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('设置形象失败:', error);
+            showStatusMessage('设置失败，但仍可继续使用', 'error');
+            setTimeout(() => {
+                window.location.href = '/index';
+            }, 2000);
+        });
+    }
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        // 加载形象
+        loadPresetAvatars();
+        loadUploadedAvatars();
+
+        // 检查已有选择
+        checkExistingSelection();
+
+        // 文件选择事件
+        browseBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                previewImageFile(e.target.files[0]);
+            }
+        });
+
+        // 确认上传按钮
+        confirmUploadBtn.addEventListener('click', () => {
+            if (currentFile) {
+                uploadImage(currentFile);
+            }
+        });
+
+        // 拖拽上传
+        dropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropArea.classList.add('dragover');
+        });
+
+        dropArea.addEventListener('dragleave', () => {
+            dropArea.classList.remove('dragover');
+        });
+
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.classList.remove('dragover');
+
+            if (e.dataTransfer.files.length > 0) {
+                previewImageFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        // 点击上传区域触发文件选择
+        dropArea.addEventListener('click', (e) => {
+            if (e.target === dropArea || e.target.classList.contains('upload-icon') ||
+                e.target.classList.contains('upload-text') || e.target.classList.contains('upload-hint')) {
+                fileInput.click();
+            }
+        });
+
+        // 继续按钮
+        continueBtn.addEventListener('click', continueToMainPage);
+
+        // 如果没有选择，默认选择第一个预置形象
+        setTimeout(() => {
+            if (!selectedAvatarId) {
+                const firstAvatarCard = document.querySelector('.avatar-card[data-id="1"]');
+                if (firstAvatarCard) {
+                    firstAvatarCard.click();
+                }
+            }
+        }, 500);
     });
 </script>
 </body>

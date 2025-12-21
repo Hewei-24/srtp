@@ -457,30 +457,46 @@
         }
 
         /* =============== 数字人形象管理 =============== */
-        function loadSelectedAvatar() {
-            // 从 localStorage 获取选择的数字人 ID
-            let selectedAvatarId = localStorage.getItem('selectedAvatar');
-            
-            // 如果没有选择，默认使用形象1
-            if (!selectedAvatarId) {
-                selectedAvatarId = '1';
-                localStorage.setItem('selectedAvatar', selectedAvatarId);
-            }
-            
-            // 更新前端显示的图片
-            const avatarImgUrl = `/avatars/avatar${selectedAvatarId}.png`;
-            avatarImg.src = avatarImgUrl;
-            
-            // 更新页面标题显示当前形象
-            const avatarName = avatarNames[selectedAvatarId] || '智能助手';
-            pageTitle.textContent = `大学生心理分析数字人代理 - ${avatarName}`;
-            pageSubtitle.textContent = `当前形象: ${avatarName} | AI数字人结合表情分析，提供更精准的心理状态评估`;
-            
-            console.log(`已加载数字人形象 ${selectedAvatarId} (${avatarName})`);
-            
-            // 确保后端也使用这个形象
-            setSadTalkerImage(selectedAvatarId);
-        }
+        <!-- 在原有代码的基础上，修改 loadSelectedAvatar 函数： -->
+
+function loadSelectedAvatar() {
+    // 从 localStorage 获取选择的数字人信息
+    let selectedAvatarId = localStorage.getItem('selectedAvatar');
+    let selectedAvatarType = localStorage.getItem('selectedAvatarType');
+    let selectedAvatarName = localStorage.getItem('selectedAvatarName');
+    let selectedAvatarUrl = localStorage.getItem('selectedAvatarUrl');
+
+    // 如果没有选择，默认使用形象1
+    if (!selectedAvatarId) {
+        selectedAvatarId = '1';
+        selectedAvatarType = 'preset';
+        selectedAvatarName = '智能助手';
+        selectedAvatarUrl = '/avatars/avatar1.png';
+
+        localStorage.setItem('selectedAvatar', selectedAvatarId);
+        localStorage.setItem('selectedAvatarType', selectedAvatarType);
+        localStorage.setItem('selectedAvatarName', selectedAvatarName);
+        localStorage.setItem('selectedAvatarUrl', selectedAvatarUrl);
+    }
+
+    // 更新前端显示的图片
+    avatarImg.src = selectedAvatarUrl;
+
+    // 如果图片加载失败，使用默认图片
+    avatarImg.onerror = function() {
+        this.src = '/avatars/avatar1.png';
+        console.warn('数字人图片加载失败，使用默认图片');
+    };
+
+    // 更新页面标题显示当前形象
+    pageTitle.textContent = `大学生心理分析数字人代理 - ${selectedAvatarName}`;
+    pageSubtitle.textContent = `当前形象: ${selectedAvatarName} | AI数字人结合表情分析，提供更精准的心理状态评估`;
+
+    console.log(`已加载数字人形象 ${selectedAvatarId} (${selectedAvatarName})`);
+
+    // 确保后端也使用这个形象
+    setSadTalkerImage(selectedAvatarId);
+}
 
         async function setSadTalkerImage(avatarId) {
             try {
