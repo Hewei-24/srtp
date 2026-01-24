@@ -1,9 +1,9 @@
 """
-大学生心理分析数字人代理 - 主服务器
-=====================================
+大学生心理分析数字人代理 - 主服务器（本地模型版）
+==============================================
 
 本模块提供基于 Flask 的 Web 服务，集成以下功能：
-1. DeepSeek API 心理咨询服务
+1. 本地心理大模型心理咨询服务
 2. DeepFace 面部表情识别
 3. 对话历史管理
 4. RESTful API 接口
@@ -12,7 +12,7 @@
 7. 用户上传自定义数字人形象功能
 
 作者: SRTP 项目组
-版本: 2.3
+版本: 2.4
 """
 
 import os
@@ -26,6 +26,8 @@ import io
 import wave
 import tempfile
 import shutil
+import threading
+import json
 from typing import Dict, Any, Optional
 
 import cv2
@@ -35,20 +37,32 @@ from flask import Flask, request, jsonify, send_from_directory, redirect, url_fo
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
+# ==================== 本地模型相关导入 ====================
+try:
+    import torch
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+    from peft import PeftModel
+    TORCH_AVAILABLE = True
+    print("✅ PyTorch 和 Transformers 库加载成功")
+except ImportError as e:
+    TORCH_AVAILABLE = False
+    print(f"❌ PyTorch 相关库导入失败: {e}")
+    print("请运行: pip install torch transformers peft")
+
 # 语音识别相关导入
 try:
     import speech_recognition as sr
     import pydub
     from pydub import AudioSegment
     SPEECH_RECOGNITION_AVAILABLE = True
-    logger = logging.getLogger(__name__)
-    logger.info("语音识别库加载成功")
-except ImportError:
+    print("✅ 语音识别库加载成功")
+except ImportError as e:
     SPEECH_RECOGNITION_AVAILABLE = False
-    logger = logging.getLogger(__name__)
-    logger.warning("语音识别库未安装，语音输入功能不可用。请运行: pip install SpeechRecognition pydub")
+    print(f"❌ 语音识别库未安装: {e}")
+    print("请运行: pip install SpeechRecognition pydub")
 
 # ==================== 日志配置 ====================
+import logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -60,18 +74,19 @@ try:
     from deepface import DeepFace
     DEEPFACE_AVAILABLE = True
     logger.info("DeepFace 库加载成功")
-except ImportError:
+except ImportError as e:
     DEEPFACE_AVAILABLE = False
-    logger.warning("DeepFace 库未安装，表情识别功能不可用。请运行: pip install deepface")
-
+    logger.warning(f"DeepFace 库未安装: {e}")
+    logger.warning("请运行: pip install deepface")
 # ==================== Flask 应用初始化 ====================
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)  # 启用跨域支持
 
 # ==================== 配置常量 ====================
-# DeepSeek API 配置（建议使用环境变量存储密钥）
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "sk-215440b00f1d426fb21a2f11eef6cf02")
-DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
+# 本地模型配置 - 修改为相对路径
+LOCAL_MODEL_PATH = "models/Qwen1.5-0.5B"
+LOCAL_ADAPTER_PATH = "outputs/psychology_trained_model"
+MODEL_LOADED = False
 
 # TTS API 配置 (SiliconFlow)
 TTS_API_URL = "https://api.siliconflow.cn/v1/audio/speech"
@@ -85,6 +100,9 @@ AUDIO_OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "aud
 AVATARS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatars")
 SPEECH_INPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "speech_input")
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")  # 新增：用户上传目录
+
+# 待机视频配置
+IDLE_VIDEOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "idle_videos")
 
 # 确保输出目录存在
 os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
@@ -132,6 +150,64 @@ conversation_history: list = []
 
 # 当前使用的数字人图片（全局变量，默认为 SadTalker 默认图片）
 current_avatar_image = SADTALKER_IMAGE
+
+# 本地模型全局变量
+local_tokenizer = None
+local_model = None
+
+# ==================== 本地模型加载函数 ====================
+def load_local_model():
+    """在后台线程中加载本地模型"""
+    global local_tokenizer, local_model, MODEL_LOADED
+
+    if not TORCH_AVAILABLE:
+        logger.error("PyTorch 未安装，无法加载本地模型")
+        return
+
+    try:
+        logger.info("开始加载本地心理大模型...")
+        logger.info(f"模型路径: {LOCAL_MODEL_PATH}")
+        logger.info(f"适配器路径: {LOCAL_ADAPTER_PATH}")
+
+        # 检查模型文件是否存在
+        if not os.path.exists(LOCAL_MODEL_PATH):
+            logger.error(f"模型路径不存在: {LOCAL_MODEL_PATH}")
+            return
+
+        # 加载分词器
+        local_tokenizer = AutoTokenizer.from_pretrained(
+            LOCAL_MODEL_PATH,
+            trust_remote_code=True
+        )
+        logger.info("分词器加载完成")
+
+        # 加载基础模型
+        base_model = AutoModelForCausalLM.from_pretrained(
+            LOCAL_MODEL_PATH,
+            torch_dtype=torch.float16,
+            device_map="auto",
+            trust_remote_code=True
+        )
+        logger.info("基础模型加载完成")
+
+        # 加载 PEFT 适配器（心理领域微调）
+        if os.path.exists(LOCAL_ADAPTER_PATH):
+            local_model = PeftModel.from_pretrained(base_model, LOCAL_ADAPTER_PATH)
+            logger.info("PEFT 适配器加载完成")
+        else:
+            local_model = base_model
+            logger.warning(f"适配器路径不存在，使用基础模型: {LOCAL_ADAPTER_PATH}")
+
+        local_model.eval()  # 设置为评估模式
+        MODEL_LOADED = True
+        logger.info("✅ 本地心理大模型加载完成！")
+
+    except FileNotFoundError as e:
+        logger.error(f"模型文件未找到: {e}")
+        MODEL_LOADED = False
+    except Exception as e:
+        logger.error(f"模型加载失败: {e}")
+        MODEL_LOADED = False
 
 # ==================== 辅助函数 ====================
 def allowed_file(filename: str) -> bool:
@@ -295,24 +371,80 @@ def save_audio_file(audio_data: bytes, filename: str) -> str:
     return file_path
 
 
-# ==================== 心理分析代理类 ====================
+# ==================== 本地模型心理分析函数 ====================
+def generate_local_model_response(user_input: str, emotion: str = "neutral") -> str:
+    """
+    使用本地模型生成心理咨询响应
+
+    Args:
+        user_input: 用户输入的文本
+        emotion: 检测到的情绪类型
+
+    Returns:
+        生成的心理咨询响应文本
+    """
+    # 检查模型是否已加载
+    if not MODEL_LOADED or local_model is None or local_tokenizer is None:
+        return "本地模型正在加载中，请稍候..."
+
+    try:
+        # 获取情绪上下文描述
+        emotion_context = EMOTION_MAP.get(emotion, EMOTION_MAP['neutral'])['context']
+
+        # 构建提示词
+        prompt = f"""【心理助手】指令：请以专业心理助手的身份回应用户的心理问题
+输入：用户说：{user_input}
+情绪状态：{emotion_context}
+回答："""
+
+        # 编码输入
+        inputs = local_tokenizer(prompt, return_tensors="pt").to(local_model.device)
+
+        # 生成回答
+        with torch.no_grad():
+            outputs = local_model.generate(
+                **inputs,
+                max_new_tokens=300,      # 最大生成 token 数
+                do_sample=True,          # 启用采样
+                temperature=0.7,         # 温度参数（控制随机性）
+                top_p=0.9,               # 核采样参数
+                repetition_penalty=1.1,  # 重复惩罚
+                pad_token_id=local_tokenizer.eos_token_id
+            )
+
+        # 解码输出
+        response = local_tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        # 提取生成的回答部分（去掉提示词）
+        generated_response = response[len(prompt):].strip()
+
+        # 清理响应（移除可能的后续对话）
+        if "用户：" in generated_response:
+            generated_response = generated_response.split("用户：")[0].strip()
+        if "【心理助手】" in generated_response:
+            generated_response = generated_response.split("【心理助手】")[0].strip()
+
+        return generated_response if generated_response else "我理解您的感受，请继续告诉我更多。"
+
+    except Exception as e:
+        logger.error(f"本地模型生成响应时出错: {e}")
+        return "抱歉，我在生成回复时遇到了问题。请再试一次。"
+
+
+# ==================== 心理分析代理类（修改版） ====================
 class PsychologicalAgent:
     """
     心理分析代理类
 
-    负责与 DeepSeek API 交互，提供心理咨询服务。
+    负责使用本地模型，提供心理咨询服务。
     支持多轮对话，结合用户情绪状态生成个性化回复。
     """
 
-    def __init__(self, api_key: str):
+    def __init__(self):
         """
         初始化心理分析代理
-
-        Args:
-            api_key: DeepSeek API 密钥
         """
-        self.api_key = api_key
-        self.api_url = DEEPSEEK_API_URL
+        self.model_loaded = MODEL_LOADED
 
     def _build_system_prompt(self, emotion: str) -> str:
         """
@@ -354,62 +486,33 @@ class PsychologicalAgent:
             包含分析结果的字典，包括 success、response、model_source 等字段
         """
         try:
-            # 构建消息列表
-            messages = [{"role": "system", "content": self._build_system_prompt(emotion)}]
+            # 首先尝试使用本地模型
+            if self.model_loaded and MODEL_LOADED:
+                logger.info(f"使用本地模型分析 - 情绪: {emotion}, 输入: {user_input[:50]}...")
 
-            # 添加最近的对话历史（最多 3 轮，即 6 条消息）
-            if conversation_history:
-                messages.extend(conversation_history[-6:])
+                # 构建完整的提示词
+                full_prompt = self._build_system_prompt(emotion) + f"\n\n用户说: {user_input}\n\n请回复:"
 
-            messages.append({"role": "user", "content": user_input})
+                # 使用本地模型生成响应
+                response_text = generate_local_model_response(user_input, emotion)
 
-            logger.info(f"调用 DeepSeek API - 情绪: {emotion}, 输入: {user_input[:50]}...")
+                if response_text and len(response_text) > 20:  # 确保响应有效
+                    # 更新对话历史
+                    self._update_history(user_input, response_text)
 
-            # 调用 API
-            response = requests.post(
-                self.api_url,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self.api_key}"
-                },
-                json={
-                    "model": "deepseek-chat",
-                    "messages": messages,
-                    "temperature": 0.7,  # 控制回复的随机性
-                    "max_tokens": 800,   # 限制回复长度
-                    "stream": False
-                },
-                timeout=30
-            )
+                    return {
+                        "success": True,
+                        "response": response_text,
+                        "model_source": "local_psychology_model"
+                    }
+                else:
+                    # 本地模型生成失败，使用备选回复
+                    logger.warning("本地模型生成响应无效，使用备选回复")
 
-            # 处理响应
-            if response.status_code == 200:
-                result = response.json()
-                assistant_response = result['choices'][0]['message']['content']
+            # 使用备选回复系统
+            logger.info(f"使用备选回复系统 - 情绪: {emotion}, 输入: {user_input[:50]}...")
+            return generate_fallback_response(user_input, emotion)
 
-                # 更新对话历史
-                self._update_history(user_input, assistant_response)
-
-                return {
-                    "success": True,
-                    "response": assistant_response,
-                    "model_source": "deepseek_api"
-                }
-            else:
-                logger.error(f"API 调用失败: {response.status_code} - {response.text[:200]}")
-                return {
-                    "success": False,
-                    "error": f"API 错误: {response.status_code}",
-                    "response": "抱歉，AI 服务暂时不可用，请稍后再试。"
-                }
-
-        except requests.exceptions.Timeout:
-            logger.error("API 请求超时")
-            return {
-                "success": False,
-                "error": "请求超时",
-                "response": "请求超时，请检查网络连接后重试。"
-            }
         except Exception as e:
             logger.error(f"分析过程中出错: {str(e)}")
             return {
@@ -533,7 +636,7 @@ def analyze_emotion_from_image(image_data: str) -> Dict[str, Any]:
 
 def generate_fallback_response(user_input: str, emotion: str) -> Dict[str, Any]:
     """
-    生成备选回复（当 API 不可用时使用）
+    生成备选回复（当本地模型不可用时使用）
 
     Args:
         user_input: 用户输入
@@ -573,41 +676,6 @@ def generate_fallback_response(user_input: str, emotion: str) -> Dict[str, Any]:
         "model_source": "fallback_system",
         "timestamp": datetime.datetime.now().isoformat()
     }
-
-
-def test_deepseek_api() -> Dict[str, Any]:
-    """
-    测试 DeepSeek API 连接状态
-
-    Returns:
-        包含测试结果的字典
-    """
-    try:
-        response = requests.post(
-            DEEPSEEK_API_URL,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
-            },
-            json={
-                "model": "deepseek-chat",
-                "messages": [{"role": "user", "content": "test"}],
-                "max_tokens": 5
-            },
-            timeout=10
-        )
-
-        if response.status_code == 200:
-            return {"success": True, "message": "API 连接正常"}
-        elif response.status_code == 401:
-            return {"success": False, "message": "API 密钥无效"}
-        else:
-            return {"success": False, "message": f"API 返回错误: {response.status_code}"}
-
-    except requests.exceptions.Timeout:
-        return {"success": False, "message": "API 连接超时"}
-    except Exception as e:
-        return {"success": False, "message": f"API 连接失败: {str(e)}"}
 
 
 # ==================== TTS 文字转语音模块 ====================
@@ -772,7 +840,13 @@ def generate_talking_video(audio_path: str, image_path: str = None) -> Dict[str,
 
 
 # ==================== 初始化代理实例 ====================
-agent = PsychologicalAgent(DEEPSEEK_API_KEY)
+agent = PsychologicalAgent()
+
+# 在后台线程中加载本地模型
+if TORCH_AVAILABLE:
+    model_thread = threading.Thread(target=load_local_model, daemon=True)
+    model_thread.start()
+    logger.info("已启动本地模型加载线程")
 
 
 # ==================== API 路由 ====================
@@ -1225,7 +1299,7 @@ def serve_audio(filename):
 @app.route('/api/analyze_local', methods=['POST'])
 def analyze_local():
     """
-    本地模型分析接口（当前使用 DeepSeek API 作为后备）
+    本地模型分析接口（与主接口相同，保持兼容性）
 
     请求体:
         - message: 用户输入的文本
@@ -1244,15 +1318,12 @@ def analyze_local():
         if not user_input:
             return jsonify({"success": False, "error": "输入不能为空"}), 400
 
-        # 尝试使用 DeepSeek API
+        # 调用心理分析代理
         result = agent.analyze(user_input, detected_emotion)
 
         if result["success"]:
             result["detected_emotion"] = detected_emotion
             result["timestamp"] = datetime.datetime.now().isoformat()
-        else:
-            # API 失败时使用备选回复
-            result = generate_fallback_response(user_input, detected_emotion)
 
         return jsonify(result)
 
@@ -1260,6 +1331,16 @@ def analyze_local():
         logger.error(f"本地分析接口错误: {str(e)}")
         return jsonify({"success": False, "error": f"服务器错误: {str(e)}"}), 500
 
+@app.route('/api/idle_videos/<filename>')
+def serve_idle_video(filename):
+    """
+    提供待机视频文件服务
+    """
+    try:
+        return send_from_directory(IDLE_VIDEOS_DIR, filename)
+    except FileNotFoundError:
+        logger.error(f"待机视频未找到: {filename}")
+        return jsonify({"error": f"待机视频 {filename} 未找到"}), 404
 
 @app.route('/api/analyze_emotion', methods=['POST'])
 def analyze_emotion():
@@ -1311,10 +1392,10 @@ def model_status():
         JSON 格式的模型状态信息
     """
     return jsonify({
-        "local_model_loaded": False,
-        "model_loading": False,
+        "local_model_loaded": MODEL_LOADED,
+        "torch_available": TORCH_AVAILABLE,
+        "model_loading": TORCH_AVAILABLE and not MODEL_LOADED,
         "deepface_available": DEEPFACE_AVAILABLE,
-        "deepseek_api_available": True,
         "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
         "timestamp": datetime.datetime.now().isoformat()
     })
@@ -1328,11 +1409,15 @@ def api_status():
     Returns:
         JSON 格式的 API 状态信息
     """
-    api_test = test_deepseek_api()
+    model_status_info = {
+        "local_model_loaded": MODEL_LOADED,
+        "torch_available": TORCH_AVAILABLE,
+        "model_loading": TORCH_AVAILABLE and not MODEL_LOADED
+    }
 
     return jsonify({
-        "status": "healthy" if api_test.get("success") else "warning",
-        "deepseek_api": api_test,
+        "status": "healthy" if (MODEL_LOADED or not TORCH_AVAILABLE) else "loading",
+        "model_status": model_status_info,
         "deepface_available": DEEPFACE_AVAILABLE,
         "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
         "timestamp": datetime.datetime.now().isoformat()
@@ -1349,17 +1434,18 @@ def health_check():
     """
     return jsonify({
         "status": "healthy",
-        "service": "大学生心理分析数字人代理",
-        "version": "2.3",
+        "service": "大学生心理分析数字人代理（本地模型版）",
+        "version": "2.4",
         "timestamp": datetime.datetime.now().isoformat(),
         "features": {
-            "psychological_analysis": True,
+            "local_psychological_analysis": MODEL_LOADED,
+            "fallback_system": True,
             "emotion_recognition": DEEPFACE_AVAILABLE,
             "real_time_camera": True,
-            "deepseek_api": True,
             "avatar_selection": True,
             "avatar_upload": True,
-            "speech_input": SPEECH_RECOGNITION_AVAILABLE
+            "speech_input": SPEECH_RECOGNITION_AVAILABLE,
+            "idle_animation": True  # 新增待机动画功能
         }
     })
 
@@ -1379,6 +1465,130 @@ def get_conversation_summary():
         "recent_topics": user_messages[-3:] if user_messages else [],
         "timestamp": datetime.datetime.now().isoformat()
     })
+
+
+def get_idle_videos() -> list:
+    """
+    获取所有可用的待机视频
+    """
+    try:
+        videos = []
+
+        # 获取目录下所有视频文件
+        video_extensions = ('.mp4', '.webm', '.mov', '.avi')
+
+        for filename in os.listdir(IDLE_VIDEOS_DIR):
+            if filename.lower().endswith(video_extensions):
+                videos.append({
+                    "filename": filename,
+                    "url": f"/api/idle_videos/{filename}",  # 修改为正确的 API URL
+                    "size": os.path.getsize(os.path.join(IDLE_VIDEOS_DIR, filename)),
+                    "modified": os.path.getmtime(os.path.join(IDLE_VIDEOS_DIR, filename))
+                })
+
+        # 按修改时间排序（最新的在前）
+        videos.sort(key=lambda x: x["modified"], reverse=True)
+
+        logger.info(f"找到 {len(videos)} 个待机视频")
+        return videos
+
+    except Exception as e:
+        logger.error(f"获取待机视频列表失败: {str(e)}")
+        return []
+
+def get_idle_video_for_avatar(avatar_id: str) -> Optional[str]:
+    try:
+        # 先尝试查找特定于该数字人的待机视频
+        if avatar_id in ['1', '2', '3']:
+            possible_filenames = [
+                f"idle_avatar{avatar_id}.mp4",
+            ]
+        elif avatar_id.startswith('upload_'):
+            possible_filenames = [
+                "idle_default.mp4",
+                "idle_default.webm",
+                "idle_breathing.mp4",
+                "idle_breathing.webm"
+            ]
+        else:
+            possible_filenames = [
+                "idle_default.mp4",
+                "idle_default.webm"
+            ]
+
+        # 检查文件是否存在
+        for filename in possible_filenames:
+            video_path = os.path.join(IDLE_VIDEOS_DIR, filename)
+            if os.path.exists(video_path):
+                logger.info(f"为数字人 {avatar_id} 找到待机视频: {filename}")
+                return f"/api/idle_videos/{filename}"  # 修改为正确的 API URL
+
+        # 如果没有找到特定视频，返回第一个可用视频
+        all_videos = get_idle_videos()
+        if all_videos:
+            return all_videos[0]['url']
+
+        return None
+
+    except Exception as e:
+        logger.error(f"获取数字人待机视频失败: {str(e)}")
+        return None
+
+    except Exception as e:
+        logger.error(f"获取数字人待机视频失败: {str(e)}")
+        return None
+
+
+@app.route('/api/idle_videos')
+def get_idle_videos_list():
+    """
+    获取可用的待机视频列表
+    """
+    try:
+        avatar_id = request.args.get('avatar_id')
+
+        if avatar_id:
+            # 获取特定于该数字人的待机视频
+            specific_video = get_idle_video_for_avatar(avatar_id)
+
+            if specific_video:
+                # 返回特定视频+其他通用视频
+                all_videos = get_idle_videos()
+                specific_filename = specific_video.split('/')[-1]
+
+                # 将特定视频放在前面
+                videos = [specific_video]
+                for video in all_videos:
+                    if video['filename'] != specific_filename:
+                        videos.append(video['url'])
+
+                return jsonify({
+                    "success": True,
+                    "videos": videos,
+                    "specific_video": specific_video,
+                    "avatar_id": avatar_id,
+                    "total": len(videos),
+                    "timestamp": datetime.datetime.now().isoformat()
+                })
+
+        # 默认返回所有视频
+        videos = get_idle_videos()
+        video_urls = [video['url'] for video in videos]
+
+        return jsonify({
+            "success": True,
+            "videos": video_urls,
+            "total": len(video_urls),
+            "timestamp": datetime.datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        logger.error(f"获取待机视频列表失败: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "videos": []
+        }), 500
 
 
 @app.route('/api/conversation/reset', methods=['POST'])
@@ -1408,7 +1618,8 @@ def debug_info():
         "conversation_length": len(conversation_history),
         "deepface_available": DEEPFACE_AVAILABLE,
         "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
-        "api_key_set": bool(DEEPSEEK_API_KEY),
+        "torch_available": TORCH_AVAILABLE,
+        "local_model_loaded": MODEL_LOADED,
         "sadtalker_image": current_avatar_image,
         "timestamp": datetime.datetime.now().isoformat()
     })
@@ -1424,20 +1635,22 @@ def favicon():
 if __name__ == '__main__':
     # 打印启动信息
     print("=" * 60)
-    print("大学生心理分析数字人代理 v2.3")
+    print("大学生心理分析数字人代理 v2.4（本地模型版）")
     print("=" * 60)
     print(f"📱 服务地址: http://localhost:5000")
     print(f"👤 形象选择: http://localhost:5000/select")
     print(f"💬 主页面: http://localhost:5000/index")
     print(f"📤 新增功能: 用户可上传自定义数字人形象")
     print(f"🎤 语音输入: 支持（需要浏览器支持语音识别）")
+    print(f"🔄 待机动画: 数字人空闲时会有呼吸和摆动动画")
+    print(f"🧠 本地模型: {'已加载' if MODEL_LOADED else '加载中' if TORCH_AVAILABLE else '未安装'}")
     print(f"❤️  健康检查: http://localhost:5000/api/health")
     print(f"📊 模型状态: http://localhost:5000/api/model/status")
     print(f"🔍 调试信息: http://localhost:5000/api/debug")
     print("=" * 60)
     print("可用 API 端点:")
-    print("  POST /api/analyze        - 心理分析")
-    print("  POST /api/analyze_local  - 本地模型分析")
+    print("  POST /api/analyze        - 心理分析（使用本地模型）")
+    print("  POST /api/analyze_local  - 本地模型分析（兼容接口）")
     print("  POST /api/analyze_emotion - 表情识别")
     print("  POST /api/set_avatar     - 设置数字人形象")
     print("  POST /api/upload_avatar  - 上传自定义形象")
@@ -1448,12 +1661,22 @@ if __name__ == '__main__':
     print("  GET  /api/conversation/summary - 对话摘要")
     print("  POST /api/conversation/reset   - 重置对话")
     print("=" * 60)
-    
+
     # 检查语音识别功能
     if SPEECH_RECOGNITION_AVAILABLE:
         print("✅ 语音识别功能已启用")
     else:
         print("⚠️  语音识别功能未启用，请运行: pip install SpeechRecognition pydub")
+
+    # 检查本地模型状态
+    if TORCH_AVAILABLE:
+        if MODEL_LOADED:
+            print("✅ 本地心理大模型已加载")
+        else:
+            print("🔄 本地心理大模型正在后台加载中...")
+    else:
+        print("⚠️  PyTorch 未安装，将使用备选回复系统")
+        print("    如需使用本地模型，请运行: pip install torch transformers peft")
     
     print("🚀 服务启动中...")
     print("=" * 60)
