@@ -33,7 +33,7 @@ from typing import Dict, Any, Optional
 import cv2
 import numpy as np
 import requests
-from flask import Flask, request, jsonify, send_from_directory, redirect, url_for
+from flask import Flask, request, jsonify, send_from_directory, redirect, url_for, render_template
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
@@ -79,7 +79,7 @@ except ImportError as e:
     logger.warning(f"DeepFace 库未安装: {e}")
     logger.warning("请运行: pip install deepface")
 # ==================== Flask 应用初始化 ====================
-app = Flask(__name__, static_folder='.', static_url_path='')
+app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app)  # 启用跨域支持
 
 # ==================== 配置常量 ====================
@@ -103,6 +103,7 @@ UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"
 
 # 待机视频配置
 IDLE_VIDEOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "idle_videos")
+SPEAKING_VIDEOS_DIR = os.path.join(app.static_folder, "speaking_videos")
 
 # 确保输出目录存在
 os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
@@ -853,49 +854,17 @@ if TORCH_AVAILABLE:
 
 @app.route('/')
 def root_redirect():
-    """
-    根路径 - 重定向到选择页面
-    """
     return redirect('/select')
 
 @app.route('/index')
 def main_page():
-    """
-    主页面路由 - 提供主页面
-    """
-    try:
-        with open('index.html', 'r', encoding='utf-8') as f:
-            return f.read()
-    except FileNotFoundError:
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head><title>大学生心理分析数字人代理</title></head>
-        <body style="font-family: Arial; padding: 40px; text-align: center;">
-            <h1 style="color: #4a90e2;">大学生心理分析数字人代理</h1>
-            <p>请先 <a href="/select">选择数字人形象</a></p>
-        </body>
-        </html>
-        """
-
+    # 使用 render_template
+    return render_template('index.html')
 
 @app.route('/select')
 def select_page():
-    """选择数字人入口页"""
-    try:
-        with open('select.html', 'r', encoding='utf-8') as f:
-            return f.read()
-    except FileNotFoundError:
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head><title>选择数字人形象</title></head>
-        <body style="font-family: Arial; padding: 40px; text-align: center;">
-            <h1 style="color: #4a90e2;">选择数字人形象</h1>
-            <p>select.html 文件未找到，请确保文件存在。</p>
-        </body>
-        </html>
-        """, 404
+    # 使用 render_template
+    return render_template('select.html')
 
 
 @app.route('/avatars/<filename>')
@@ -1181,76 +1150,70 @@ def serve_speech(filename):
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
     """
-    心理分析主接口（集成 TTS 和数字人视频生成）
-
-    请求体:
-        - message: 用户输入的文本
-        - detected_emotion: 检测到的情绪（可选）
-        - generate_video: 是否生成数字人视频（可选，默认 True）
-
-    Returns:
-        JSON 格式的分析结果，包含视频 URL
+    修改后的分析接口：仅生成 TTS 音频，并返回预置视频路径
     """
-    global current_avatar_image
-
     try:
         data = request.get_json()
+        logger.info(f"收到分析请求: {data}")
+        
         user_input = data.get('message', '').strip()
         detected_emotion = data.get('detected_emotion', 'neutral')
-        generate_video = data.get('generate_video', True)
-
-        logger.info(f"收到分析请求 - 情绪: {detected_emotion}, 生成视频: {generate_video}")
-
+        avatar_id = data.get('avatar_id', '1')  # 从请求中获取 avatar_id
+        
         if not user_input:
             return jsonify({"success": False, "error": "输入不能为空"}), 400
 
-        # 调用心理分析代理
+        # 1. 调用心理分析 (LLM)
+        logger.info(f"开始心理分析 - 输入: {user_input[:50]}..., 情绪: {detected_emotion}, 头像: {avatar_id}")
         result = agent.analyze(user_input, detected_emotion)
 
         if result["success"]:
-            result["detected_emotion"] = detected_emotion
-            result["timestamp"] = datetime.datetime.now().isoformat()
+            # 2. 生成 TTS 音频
+            response_text = result.get("response", "")
+            logger.info(f"心理分析成功，生成 TTS，文本长度: {len(response_text)}")
+            
+            # 清理文本
+            import re
+            clean_text = re.sub(r'<[^>]+>', '', response_text).replace('&nbsp;', ' ')
+            
+            tts_result = text_to_speech(clean_text)
 
-            # 如果需要生成视频
-            if generate_video:
-                response_text = result.get("response", "")
-
-                # 清理 HTML 标签，只保留纯文本用于 TTS
-                import re
-                clean_text = re.sub(r'<[^>]+>', '', response_text)
-                clean_text = clean_text.replace('<br>', '。').replace('&nbsp;', ' ')
-
-                # 步骤1: TTS 文字转语音
-                logger.info("开始 TTS 转换...")
-                tts_result = text_to_speech(clean_text)
-
-                if tts_result["success"]:
-                    audio_path = tts_result["audio_path"]
-                    result["audio_url"] = f"/api/audio/{tts_result['audio_filename']}"
-
-                    # 步骤2: SadTalker 生成视频（使用当前设置的数字人图片）
-                    logger.info("开始生成数字人视频...")
-                    video_result = generate_talking_video(audio_path, current_avatar_image)
-
-                    if video_result["success"]:
-                        result["video_url"] = f"/api/video/{video_result['video_filename']}"
-                        result["video_generated"] = True
-                        logger.info(f"视频生成成功: {video_result['video_filename']}")
-                    else:
-                        result["video_generated"] = False
-                        result["video_error"] = video_result.get("error", "视频生成失败")
-                        logger.warning(f"视频生成失败: {video_result.get('error')}")
+            if tts_result["success"]:
+                # 3. 返回音频 URL 和对应的预置说话视频 URL
+                audio_url = f"/api/audio/{tts_result['audio_filename']}"
+                
+                # 4. 根据 avatar_id 返回对应的预置视频
+                video_filename = f"avatar{avatar_id}_talking.mp4"
+                video_path = os.path.join(app.static_folder, "speaking_videos", video_filename)
+                
+                logger.info(f"检查视频文件: {video_path}")
+                
+                if os.path.exists(video_path):
+                    video_url = f"/static/speaking_videos/{video_filename}"
+                    logger.info(f"使用预置视频: {video_url}")
                 else:
-                    result["video_generated"] = False
-                    result["tts_error"] = tts_result.get("error", "TTS 转换失败")
-                    logger.warning(f"TTS 转换失败: {tts_result.get('error')}")
+                    # 如果特定 avatar 的视频不存在，使用 avatar1 作为默认
+                    video_filename = "avatar1_talking.mp4"
+                    video_url = f"/static/speaking_videos/{video_filename}"
+                    logger.warning(f"预置视频不存在，使用默认: {video_filename}")
+                
+                result["audio_url"] = audio_url
+                result["video_url"] = video_url
+                result["video_generated"] = True
+                result["is_preset"] = True
+                result["avatar_id"] = avatar_id
+                
+                logger.info(f"返回结果: audio={audio_url}, video={video_url}")
+            else:
+                logger.error(f"TTS 生成失败: {tts_result.get('error')}")
+                result["video_generated"] = False
+                result["error"] = tts_result.get('error', 'TTS 生成失败')
 
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"分析接口错误: {str(e)}")
-        return jsonify({"success": False, "error": f"服务器错误: {str(e)}"}), 500
-
+        logger.error(f"分析接口错误: {str(e)}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/video/<filename>')
 def serve_video(filename):
