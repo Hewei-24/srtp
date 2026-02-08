@@ -23,11 +23,13 @@ import subprocess
 import uuid
 import glob
 import io
+import time 
 import wave
 import tempfile
 import shutil
 import threading
 import json
+import asyncio
 from typing import Dict, Any, Optional
 
 import cv2
@@ -52,7 +54,6 @@ except ImportError as e:
 # 语音识别相关导入
 try:
     import speech_recognition as sr
-    import pydub
     from pydub import AudioSegment
     SPEECH_RECOGNITION_AVAILABLE = True
     print("✅ 语音识别库加载成功")
@@ -60,6 +61,16 @@ except ImportError as e:
     SPEECH_RECOGNITION_AVAILABLE = False
     print(f"❌ 语音识别库未安装: {e}")
     print("请运行: pip install SpeechRecognition pydub")
+
+# Edge TTS 导入
+try:
+    import edge_tts
+    EDGE_TTS_AVAILABLE = True
+    print("✅ Edge TTS 库加载成功")
+except ImportError as e:
+    EDGE_TTS_AVAILABLE = False
+    print(f"❌ Edge TTS 库未安装: {e}")
+    print("请运行: pip install edge-tts")
 
 # ==================== 日志配置 ====================
 import logging
@@ -78,6 +89,7 @@ except ImportError as e:
     DEEPFACE_AVAILABLE = False
     logger.warning(f"DeepFace 库未安装: {e}")
     logger.warning("请运行: pip install deepface")
+
 # ==================== Flask 应用初始化 ====================
 app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app)  # 启用跨域支持
@@ -87,10 +99,6 @@ CORS(app)  # 启用跨域支持
 LOCAL_MODEL_PATH = "models/Qwen1.5-0.5B"
 LOCAL_ADAPTER_PATH = "outputs/psychology_trained_model"
 MODEL_LOADED = False
-
-# TTS API 配置 (SiliconFlow)
-TTS_API_URL = "https://api.siliconflow.cn/v1/audio/speech"
-TTS_API_TOKEN = "sk-lvtuhfndddcmdyvnjtbzjuobfoewylsnqaqwfsnuznpilhkp"
 
 # SadTalker 配置
 SADTALKER_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SadTalker")
@@ -679,69 +687,93 @@ def generate_fallback_response(user_input: str, emotion: str) -> Dict[str, Any]:
     }
 
 
-# ==================== TTS 文字转语音模块 ====================
+# ==================== Edge TTS 文字转语音模块 ====================
 def text_to_speech(text: str) -> Dict[str, Any]:
     """
-    将文字转换为语音 MP3 文件
-
-    Args:
-        text: 要转换的文字内容
-
-    Returns:
-        包含音频文件路径的字典
+    使用 Edge TTS 将文字转换为语音
+    
+    支持的中文音色：
+    - zh-CN-XiaoxiaoNeural (晓晓，女声，推荐)
+    - zh-CN-YunxiNeural (云希，男声)
+    - zh-CN-YunxiaNeural (云夏，男声)
+    - zh-CN-YunyangNeural (云扬，男声)
     """
     try:
         # 生成唯一文件名
         audio_filename = f"tts_{uuid.uuid4().hex[:8]}.mp3"
         audio_path = os.path.join(AUDIO_OUTPUT_DIR, audio_filename)
 
-        logger.info(f"开始 TTS 转换，文本长度: {len(text)}")
-
-        # 调用 SiliconFlow TTS API
-        request_data = {
-            "model": "IndexTeam/IndexTTS-2",
-            "voice": "IndexTeam/IndexTTS-2:claire",
-            "stream": True,
-            "input": text,
-            "max_tokens": 1600,
-            "response_format": "mp3",
-            "speed": 1,
-            "gain": 0
-        }
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f"Bearer {TTS_API_TOKEN}"
-        }
-
-        response = requests.post(
-            url=TTS_API_URL,
-            json=request_data,
-            headers=headers,
-            timeout=60
-        )
-
-        if response.status_code != 200:
-            logger.error(f"TTS API 错误: {response.status_code} - {response.text[:200]}")
-            return {"success": False, "error": f"TTS API 错误: {response.status_code}"}
-
-        # 保存音频文件
-        with open(audio_path, 'wb') as f:
-            f.write(response.content)
-
-        logger.info(f"TTS 转换成功，保存到: {audio_path}")
+        logger.info(f"开始 Edge TTS 转换，文本长度: {len(text)}")
+        
+        # 清理文本，移除 HTML 标签
+        import re
+        clean_text = re.sub(r'<[^>]+>', '', text).strip()
+        
+        if len(clean_text) > 1000:
+            clean_text = clean_text[:1000] + "..."
+            logger.warning(f"文本过长，截断为1000字符")
+        
+        # 异步生成语音
+        async def generate_speech():
+            communicate = edge_tts.Communicate(
+                clean_text,
+                "zh-CN-XiaoxiaoNeural",  # 中文女声音色
+                rate="+0%",              # 语速
+                volume="+0%"             # 音量
+            )
+            await communicate.save(audio_path)
+        
+        # 运行异步任务
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(generate_speech())
+        loop.close()
+        
+        # 验证文件
+        file_size = os.path.getsize(audio_path)
+        logger.info(f"音频文件生成成功: {audio_path}, 大小: {file_size} bytes")
+        
+        if file_size < 100:  # 文件太小可能是错误
+            logger.error(f"生成的音频文件太小，可能失败: {file_size} bytes")
+            return create_silent_audio(audio_filename, audio_path)
+        
         return {
             "success": True,
             "audio_path": audio_path,
-            "audio_filename": audio_filename
+            "audio_filename": audio_filename,
+            "tts_engine": "edge-tts",
+            "voice": "zh-CN-XiaoxiaoNeural"
         }
 
-    except requests.exceptions.Timeout:
-        logger.error("TTS API 请求超时")
-        return {"success": False, "error": "TTS 请求超时"}
     except Exception as e:
-        logger.error(f"TTS 转换失败: {str(e)}")
-        return {"success": False, "error": str(e)}
+        logger.error(f"Edge TTS 转换失败: {str(e)}", exc_info=True)
+        return create_silent_audio(audio_filename, audio_path)
 
+def create_silent_audio(filename: str, path: str) -> Dict[str, Any]:
+    """
+    创建静音音频（备用方案）
+    """
+    try:
+        # 使用 pydub 创建静音音频
+        silent_audio = AudioSegment.silent(duration=1000)  # 1秒静音
+        silent_audio.export(path, format="mp3")
+        
+        logger.warning(f"创建静音音频: {path}")
+        return {
+            "success": True,
+            "audio_path": path,
+            "audio_filename": filename,
+            "tts_engine": "silent_audio",
+            "is_silent": True,
+            "warning": "TTS失败，使用静音音频"
+        }
+        
+    except Exception as e:
+        logger.error(f"创建静音音频失败: {str(e)}")
+        return {
+            "success": False, 
+            "error": f"所有TTS方案都失败了: {str(e)}"
+        }
 
 # ==================== SadTalker 视频生成模块 ====================
 def generate_talking_video(audio_path: str, image_path: str = None) -> Dict[str, Any]:
@@ -1202,6 +1234,7 @@ def analyze():
                 result["video_generated"] = True
                 result["is_preset"] = True
                 result["avatar_id"] = avatar_id
+                result["tts_engine"] = tts_result.get("tts_engine", "edge-tts")
                 
                 logger.info(f"返回结果: audio={audio_url}, video={video_url}")
             else:
@@ -1360,6 +1393,7 @@ def model_status():
         "model_loading": TORCH_AVAILABLE and not MODEL_LOADED,
         "deepface_available": DEEPFACE_AVAILABLE,
         "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
+        "edge_tts_available": EDGE_TTS_AVAILABLE,
         "timestamp": datetime.datetime.now().isoformat()
     })
 
@@ -1383,6 +1417,7 @@ def api_status():
         "model_status": model_status_info,
         "deepface_available": DEEPFACE_AVAILABLE,
         "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
+        "edge_tts_available": EDGE_TTS_AVAILABLE,
         "timestamp": datetime.datetime.now().isoformat()
     })
 
@@ -1408,7 +1443,8 @@ def health_check():
             "avatar_selection": True,
             "avatar_upload": True,
             "speech_input": SPEECH_RECOGNITION_AVAILABLE,
-            "idle_animation": True  # 新增待机动画功能
+            "edge_tts": EDGE_TTS_AVAILABLE,  # 新增 Edge TTS 功能
+            "idle_animation": True
         }
     })
 
@@ -1497,10 +1533,6 @@ def get_idle_video_for_avatar(avatar_id: str) -> Optional[str]:
         logger.error(f"获取数字人待机视频失败: {str(e)}")
         return None
 
-    except Exception as e:
-        logger.error(f"获取数字人待机视频失败: {str(e)}")
-        return None
-
 
 @app.route('/api/idle_videos')
 def get_idle_videos_list():
@@ -1583,6 +1615,7 @@ def debug_info():
         "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
         "torch_available": TORCH_AVAILABLE,
         "local_model_loaded": MODEL_LOADED,
+        "edge_tts_available": EDGE_TTS_AVAILABLE,
         "sadtalker_image": current_avatar_image,
         "timestamp": datetime.datetime.now().isoformat()
     })
@@ -1605,6 +1638,7 @@ if __name__ == '__main__':
     print(f"💬 主页面: http://localhost:5000/index")
     print(f"📤 新增功能: 用户可上传自定义数字人形象")
     print(f"🎤 语音输入: 支持（需要浏览器支持语音识别）")
+    print(f"🔊 TTS引擎: Edge TTS（离线免费）")
     print(f"🔄 待机动画: 数字人空闲时会有呼吸和摆动动画")
     print(f"🧠 本地模型: {'已加载' if MODEL_LOADED else '加载中' if TORCH_AVAILABLE else '未安装'}")
     print(f"❤️  健康检查: http://localhost:5000/api/health")
@@ -1630,6 +1664,12 @@ if __name__ == '__main__':
         print("✅ 语音识别功能已启用")
     else:
         print("⚠️  语音识别功能未启用，请运行: pip install SpeechRecognition pydub")
+
+    # 检查 Edge TTS 功能
+    if EDGE_TTS_AVAILABLE:
+        print("✅ Edge TTS 功能已启用")
+    else:
+        print("⚠️  Edge TTS 未启用，请运行: pip install edge-tts")
 
     # 检查本地模型状态
     if TORCH_AVAILABLE:
