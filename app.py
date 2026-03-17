@@ -886,16 +886,22 @@ if TORCH_AVAILABLE:
 
 @app.route('/')
 def root_redirect():
-    return redirect('/select')
+    return redirect('/home')
+
+@app.route('/home')
+def home_page():
+    return render_template('home.html')
+
+@app.route('/garden')
+def garden_page():
+    return render_template('garden.html')
 
 @app.route('/index')
 def main_page():
-    # 使用 render_template
     return render_template('index.html')
 
 @app.route('/select')
 def select_page():
-    # 使用 render_template
     return render_template('select.html')
 
 
@@ -1214,23 +1220,36 @@ def analyze():
                 # 3. 返回音频 URL 和对应的预置说话视频 URL
                 audio_url = f"/api/audio/{tts_result['audio_filename']}"
                 
-                # 4. 根据 avatar_id 返回对应的预置视频
-                video_filename = f"avatar{avatar_id}_talking.mp4"
-                video_path = os.path.join(app.static_folder, "speaking_videos", video_filename)
+                # 4. 根据 avatar_id 返回对应的预置视频列表（支持随机播放）
+                speaking_videos_dir = os.path.join(app.static_folder, "speaking_videos")
+                video_extensions = ('.mp4', '.webm', '.mov', '.avi')
                 
-                logger.info(f"检查视频文件: {video_path}")
+                avatar_videos = []
+                fallback_videos = []
                 
-                if os.path.exists(video_path):
-                    video_url = f"/static/speaking_videos/{video_filename}"
-                    logger.info(f"使用预置视频: {video_url}")
+                if os.path.exists(speaking_videos_dir):
+                    for fname in os.listdir(speaking_videos_dir):
+                        if fname.lower().endswith(video_extensions):
+                            url = f"/static/speaking_videos/{fname}"
+                            if f"avatar{avatar_id}" in fname or f"avatar_{avatar_id}" in fname:
+                                avatar_videos.append(url)
+                            else:
+                                fallback_videos.append(url)
+                
+                candidate_videos = avatar_videos if avatar_videos else fallback_videos
+                
+                if candidate_videos:
+                    video_url = candidate_videos[0]
+                    video_urls = candidate_videos
+                    logger.info(f"找到 {len(candidate_videos)} 个可用说话视频（avatar_id={avatar_id}）")
                 else:
-                    # 如果特定 avatar 的视频不存在，使用 avatar1 作为默认
-                    video_filename = "avatar1_talking.mp4"
-                    video_url = f"/static/speaking_videos/{video_filename}"
-                    logger.warning(f"预置视频不存在，使用默认: {video_filename}")
+                    video_url = f"/static/speaking_videos/avatar1_talking.mp4"
+                    video_urls = [video_url]
+                    logger.warning(f"未找到任何说话视频，使用兜底路径")
                 
                 result["audio_url"] = audio_url
                 result["video_url"] = video_url
+                result["video_urls"] = video_urls
                 result["video_generated"] = True
                 result["is_preset"] = True
                 result["avatar_id"] = avatar_id
