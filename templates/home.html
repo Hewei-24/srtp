@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心晴 · 大学生心理健康平台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sage: #7a9e7e;
+    --sage-light: #b8d4bb;
+    --sage-dark: #4a6b4e;
+    --cream: #f8f4ee;
+    --warm-white: #fdfaf6;
+    --moss: #3d5c40;
+    --terracotta: #c17f5a;
+    --terracotta-light: #e8c4a8;
+    --sky: #8ab8c8;
+    --gold: #c9a96e;
+    --text-dark: #2c3e2d;
+    --text-mid: #5a6b5c;
+    --text-light: #8a9b8c;
+    --glass: rgba(255,255,255,0.65);
+    --glass-border: rgba(255,255,255,0.8);
+    --shadow: 0 8px 40px rgba(61,92,64,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    min-height: 100vh;
+    background-color: #e8f0e4;
+    background-image:
+      radial-gradient(ellipse at 20% 10%, rgba(122,158,126,0.35) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 90%, rgba(138,184,200,0.25) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 30%, rgba(193,127,90,0.1) 0%, transparent 40%);
+    overflow-x: hidden;
+  }
+
+  /* floating botanical decorations */
+  .bg-deco {
+    position: fixed;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .leaf-1 {
+    top: -40px; right: 8%;
+    width: 220px; opacity: 0.18;
+    animation: sway 8s ease-in-out infinite;
+  }
+  .leaf-2 {
+    bottom: 5%; left: -30px;
+    width: 180px; opacity: 0.14;
+    animation: sway 10s ease-in-out infinite reverse;
+  }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-5deg) translateY(0); }
+    50% { transform: rotate(5deg) translateY(-10px); }
+  }
+
+  /* nav */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 48px;
+    background: rgba(248,244,238,0.75);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(122,158,126,0.2);
+  }
+  .nav-logo {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 1.5rem;
+    color: var(--moss);
+    letter-spacing: 0.05em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .nav-logo svg { width: 28px; height: 28px; }
+  .nav-links { display: flex; gap: 32px; }
+  .nav-links a {
+    text-decoration: none;
+    font-size: 0.9rem;
+    color: var(--text-mid);
+    font-weight: 400;
+    letter-spacing: 0.03em;
+    transition: color 0.2s;
+    position: relative;
+  }
+  .nav-links a::after {
+    content: ''; position: absolute; bottom: -3px; left: 0; right: 0;
+    height: 1.5px; background: var(--sage);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 0.3s;
+  }
+  .nav-links a:hover { color: var(--moss); }
+  .nav-links a:hover::after { transform: scaleX(1); }
+
+  /* hero */
+  .hero {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 120px 24px 80px;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(122,158,126,0.15);
+    border: 1px solid rgba(122,158,126,0.35);
+    border-radius: 50px;
+    padding: 7px 18px;
+    font-size: 0.82rem;
+    color: var(--sage-dark);
+    letter-spacing: 0.08em;
+    margin-bottom: 32px;
+    animation: fadeUp 0.8s ease both;
+  }
+  .hero-badge .dot {
+    width: 6px; height: 6px;
+    background: var(--sage);
+    border-radius: 50%;
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.7); }
+  }
+
+  .hero h1 {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: clamp(3rem, 7vw, 5.5rem);
+    color: var(--text-dark);
+    line-height: 1.1;
+    letter-spacing: 0.06em;
+    margin-bottom: 12px;
+    animation: fadeUp 0.8s ease 0.1s both;
+  }
+  .hero h1 .accent { color: var(--sage-dark); }
+
+  .hero-sub {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1.1rem;
+    color: var(--text-mid);
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    margin-bottom: 16px;
+    animation: fadeUp 0.8s ease 0.2s both;
+  }
+  .hero-desc {
+    max-width: 520px;
+    font-size: 0.95rem;
+    color: var(--text-light);
+    line-height: 1.9;
+    margin-bottom: 60px;
+    animation: fadeUp 0.8s ease 0.3s both;
+  }
+
+  /* module cards */
+  .modules {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 860px;
+    width: 100%;
+    animation: fadeUp 0.8s ease 0.4s both;
+  }
+  @media (max-width: 640px) {
+    .modules { grid-template-columns: 1fr; }
+  }
+
+  .module-card {
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+    padding: 40px 36px;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.35s ease, box-shadow 0.35s ease;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    cursor: pointer;
+  }
+  .module-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 28px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .module-card.garden::before {
+    background: linear-gradient(135deg, rgba(122,158,126,0.08), rgba(61,92,64,0.05));
+  }
+  .module-card.treehouse::before {
+    background: linear-gradient(135deg, rgba(138,184,200,0.08), rgba(90,107,92,0.05));
+  }
+  .module-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 56px rgba(61,92,64,0.18);
+  }
+  .module-card:hover::before { opacity: 1; }
+
+  .card-icon {
+    width: 60px; height: 60px;
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+  .garden .card-icon { background: rgba(122,158,126,0.18); }
+  .treehouse .card-icon { background: rgba(138,184,200,0.2); }
+
+  .card-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+  .garden .card-label { color: var(--sage); }
+  .treehouse .card-label { color: var(--sky); }
+
+  .card-title {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 1.8rem;
+    color: var(--text-dark);
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+  }
+  .card-desc {
+    font-size: 0.88rem;
+    color: var(--text-mid);
+    line-height: 1.8;
+    flex: 1;
+  }
+
+  .card-cta {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    padding: 10px 20px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-decoration: none;
+    margin-top: 8px;
+  }
+  .garden .card-cta {
+    background: var(--sage);
+    color: white;
+  }
+  .garden .card-cta:hover { background: var(--sage-dark); }
+  .treehouse .card-cta {
+    background: var(--sky);
+    color: white;
+  }
+  .treehouse .card-cta:hover { background: #6a9ab0; }
+
+  .card-decoration {
+    position: absolute;
+    bottom: -20px; right: -20px;
+    font-size: 100px;
+    opacity: 0.06;
+    pointer-events: none;
+    line-height: 1;
+  }
+
+  /* stats strip */
+  .stats {
+    display: flex; gap: 48px;
+    margin-top: 56px;
+    animation: fadeUp 0.8s ease 0.5s both;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--moss);
+    display: block;
+  }
+  .stat-label {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    letter-spacing: 0.06em;
+    margin-top: 4px;
+  }
+  .stat-divider {
+    width: 1px;
+    background: rgba(122,158,126,0.25);
+    align-self: stretch;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* scroll hint */
+  .scroll-hint {
+    position: absolute; bottom: 32px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    font-size: 0.78rem; color: var(--text-light);
+    letter-spacing: 0.08em;
+    animation: fadeUp 1s ease 1s both;
+  }
+  .scroll-hint .chevron {
+    width: 20px; height: 20px;
+    border-right: 1.5px solid var(--text-light);
+    border-bottom: 1.5px solid var(--text-light);
+    transform: rotate(45deg);
+    animation: bounce 1.8s infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: rotate(45deg) translateY(0); }
+    50% { transform: rotate(45deg) translateY(5px); }
+  }
+</style>
+</head>
+<body>
+
+<!-- floating botanical SVG leaves -->
+<div class="bg-deco leaf-1">
+  <svg viewBox="0 0 200 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M100 280 C100 280 20 200 10 120 C0 40 60 10 100 20 C140 10 200 40 190 120 C180 200 100 280 100 280Z" fill="#3d5c40"/>
+    <path d="M100 280 C100 280 100 180 100 20" stroke="#7a9e7e" stroke-width="2" fill="none"/>
+    <path d="M100 120 C80 100 50 95 30 100" stroke="#7a9e7e" stroke-width="1.5" fill="none"/>
+    <path d="M100 160 C120 140 150 135 170 140" stroke="#7a9e7e" stroke-width="1.5" fill="none"/>
+    <path d="M100 80 C85 65 65 62 50 67" stroke="#7a9e7e" stroke-width="1.2" fill="none"/>
+  </svg>
+</div>
+<div class="bg-deco leaf-2">
+  <svg viewBox="0 0 180 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M90 250 C90 250 15 180 8 108 C1 36 50 8 90 18 C130 8 179 36 172 108 C165 180 90 250 90 250Z" fill="#4a6b4e"/>
+    <path d="M90 250 C90 250 90 160 90 18" stroke="#7a9e7e" stroke-width="1.8" fill="none"/>
+    <path d="M90 110 C74 92 48 88 28 93" stroke="#7a9e7e" stroke-width="1.3" fill="none"/>
+    <path d="M90 150 C106 132 132 128 152 133" stroke="#7a9e7e" stroke-width="1.3" fill="none"/>
+  </svg>
+</div>
+
+<nav>
+  <div class="nav-logo">
+    <svg viewBox="0 0 28 28" fill="none">
+      <circle cx="14" cy="14" r="13" stroke="#3d5c40" stroke-width="1.5"/>
+      <path d="M14 22 C14 22 8 17 8 12 C8 8.5 10.7 7 14 7 C17.3 7 20 8.5 20 12 C20 17 14 22 14 22Z" fill="#7a9e7e"/>
+      <path d="M14 22 L14 7" stroke="#3d5c40" stroke-width="1" stroke-dasharray="2 2"/>
+    </svg>
+    心晴
+  </div>
+  <div class="nav-links">
+    <a href="/garden">心理润园</a>
+    <a href="/select">树洞智能体</a>
+    <a href="#about">关于我们</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge">
+    <span class="dot"></span>
+    大学生心理健康服务平台
+  </div>
+
+  <h1>心<span class="accent">晴</span></h1>
+  <p class="hero-sub">你的内心花园，始终向阳而生</p>
+  <p class="hero-desc">
+    每一颗心都值得被温柔对待。<br>
+    在这里，你可以学习心理知识、探索自我，<br>
+    也可以向树洞倾诉心中所想。
+  </p>
+
+  <div class="modules">
+    <!-- 心理润园 -->
+    <a href="/garden" class="module-card garden">
+      <div class="card-icon">🌿</div>
+      <span class="card-label">知识 · 测评 · 练习</span>
+      <h2 class="card-title">心理润园</h2>
+      <p class="card-desc">
+        科普文章、心理自测、呼吸放松练习与资源推荐，帮助你了解自己、滋养心灵。
+      </p>
+      <a href="/garden" class="card-cta">
+        进入润园
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3 7h8M8 4l3 3-3 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+      <div class="card-decoration">🌱</div>
+    </a>
+
+    <!-- 树洞智能体 -->
+    <a href="/select" class="module-card treehouse">
+      <div class="card-icon">🌳</div>
+      <span class="card-label">倾诉 · 分析 · 陪伴</span>
+      <h2 class="card-title">树洞智能体</h2>
+      <p class="card-desc">
+        选择一位数字人助手，进行私密的心理倾诉与智能分析，随时随地的情绪陪伴。
+      </p>
+      <a href="/select" class="card-cta">
+        开始倾诉
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3 7h8M8 4l3 3-3 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+      <div class="card-decoration">🍃</div>
+    </a>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-num">12+</span>
+      <div class="stat-label">心理科普话题</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <span class="stat-num">3</span>
+      <div class="stat-label">数字人助手</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <span class="stat-num">7×24</span>
+      <div class="stat-label">随时陪伴</div>
+    </div>
+  </div>
+
+  <div class="scroll-hint">
+    了解更多
+    <div class="chevron"></div>
+  </div>
+</section>
+
+</body>
+</html>

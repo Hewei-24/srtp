@@ -50,8 +50,17 @@ export class AvatarController {
         this.idleVideoEl.style.display = 'none';
     }
 
-    // 播放预置视频
-    playTalking(videoUrl, audioUrl) {
+    // 播放预置视频（支持随机从候选列表中选取）
+    playTalking(videoUrlOrList, audioUrl) {
+    // 如果传入的是数组，则随机选一个；否则直接使用
+    let videoUrl;
+    if (Array.isArray(videoUrlOrList) && videoUrlOrList.length > 0) {
+        const idx = Math.floor(Math.random() * videoUrlOrList.length);
+        videoUrl = videoUrlOrList[idx];
+        console.log(`随机选取说话视频 (${idx + 1}/${videoUrlOrList.length}): ${videoUrl}`);
+    } else {
+        videoUrl = videoUrlOrList;
+    }
     this.stopIdle();
     
     // 隐藏静态图和加载动画

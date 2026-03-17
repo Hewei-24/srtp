@@ -98,10 +98,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            // 播放视频
-            if (result.video_generated && result.video_url) {
-                console.log('播放视频:', result.video_url, '音频:', result.audio_url);
-                avatar.playTalking(result.video_url, result.audio_url);
+            // 播放视频（优先使用候选列表以支持随机播放）
+            if (result.video_generated && (result.video_urls || result.video_url)) {
+                const videoSource = result.video_urls || result.video_url;
+                console.log('播放视频（候选列表）:', videoSource, '音频:', result.audio_url);
+                avatar.playTalking(videoSource, result.audio_url);
             } else {
                 console.warn('视频生成失败:', result.error);
                 avatar.showStatic();
