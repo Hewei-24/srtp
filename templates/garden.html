@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心理润园 · 心晴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sage: #7a9e7e;
+    --sage-light: #b8d4bb;
+    --sage-dark: #4a6b4e;
+    --cream: #f8f4ee;
+    --warm-white: #fdfaf6;
+    --moss: #3d5c40;
+    --terracotta: #c17f5a;
+    --sky: #8ab8c8;
+    --gold: #c9a96e;
+    --lavender: #9b8fc8;
+    --rose: #c88fa0;
+    --text-dark: #2c3e2d;
+    --text-mid: #5a6b5c;
+    --text-light: #8a9b8c;
+    --glass: rgba(255,255,255,0.7);
+    --glass-border: rgba(255,255,255,0.85);
+    --shadow: 0 6px 32px rgba(61,92,64,0.1);
+    --radius: 22px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    min-height: 100vh;
+    background-color: #e8f0e4;
+    background-image:
+      radial-gradient(ellipse at 15% 0%, rgba(122,158,126,0.3) 0%, transparent 45%),
+      radial-gradient(ellipse at 85% 100%, rgba(138,184,200,0.2) 0%, transparent 45%);
+    color: var(--text-dark);
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 48px;
+    background: rgba(248,244,238,0.8);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(122,158,126,0.2);
+  }
+  .nav-logo {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 1.4rem; color: var(--moss);
+    display: flex; align-items: center; gap: 8px;
+    text-decoration: none;
+  }
+  .nav-right { display: flex; align-items: center; gap: 24px; }
+  .nav-link {
+    text-decoration: none; font-size: 0.88rem;
+    color: var(--text-mid); transition: color 0.2s;
+  }
+  .nav-link:hover { color: var(--moss); }
+  .nav-cta {
+    background: var(--sage); color: white;
+    border: none; border-radius: 50px;
+    padding: 9px 20px; font-size: 0.85rem;
+    cursor: pointer; text-decoration: none;
+    font-family: 'Noto Sans SC', sans-serif;
+    transition: background 0.2s;
+  }
+  .nav-cta:hover { background: var(--sage-dark); }
+
+  /* ── PAGE HEADER ── */
+  .page-header {
+    padding: 60px 48px 40px;
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap;
+  }
+  .page-header h1 {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+    color: var(--text-dark); letter-spacing: 0.06em;
+    line-height: 1.15;
+  }
+  .page-header p {
+    font-size: 0.92rem; color: var(--text-mid);
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 300; line-height: 1.8;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── SECTION TABS ── */
+  .tab-nav {
+    display: flex; gap: 8px;
+    padding: 0 48px; max-width: 1200px; margin: 0 auto 32px;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .tab-nav::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    white-space: nowrap;
+    padding: 10px 22px;
+    border: 1px solid rgba(122,158,126,0.3);
+    border-radius: 50px;
+    background: rgba(255,255,255,0.6);
+    font-size: 0.88rem;
+    color: var(--text-mid);
+    cursor: pointer;
+    font-family: 'Noto Sans SC', sans-serif;
+    transition: all 0.25s;
+    backdrop-filter: blur(8px);
+  }
+  .tab-btn.active, .tab-btn:hover {
+    background: var(--sage); color: white;
+    border-color: var(--sage);
+  }
+
+  /* ── MAIN CONTENT ── */
+  main {
+    max-width: 1200px; margin: 0 auto;
+    padding: 0 48px 80px;
+  }
+  @media (max-width: 768px) {
+    nav, main, .page-header, .tab-nav { padding-left: 20px; padding-right: 20px; }
+  }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* ── ARTICLES SECTION ── */
+  .articles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .article-card {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    text-decoration: none; color: inherit;
+  }
+  .article-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 48px rgba(61,92,64,0.16);
+  }
+  .article-img {
+    height: 130px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 52px;
+    position: relative; overflow: hidden;
+  }
+  .article-img::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.04));
+  }
+  .article-body { padding: 20px 22px 24px; }
+  .article-tag {
+    display: inline-block;
+    font-size: 0.72rem; letter-spacing: 0.08em;
+    padding: 3px 10px; border-radius: 50px;
+    margin-bottom: 10px; font-weight: 500;
+  }
+  .tag-anxiety { background: rgba(201,169,110,0.15); color: #a07820; }
+  .tag-depression { background: rgba(155,143,200,0.15); color: #6354a8; }
+  .tag-stress { background: rgba(122,158,126,0.15); color: var(--sage-dark); }
+  .tag-sleep { background: rgba(138,184,200,0.15); color: #3a7a90; }
+  .tag-relationship { background: rgba(200,143,160,0.15); color: #a0446a; }
+  .tag-selfcare { background: rgba(193,127,90,0.15); color: #8a4020; }
+
+  .article-card h3 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1.05rem; font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 8px; line-height: 1.5;
+  }
+  .article-card p {
+    font-size: 0.83rem; color: var(--text-mid);
+    line-height: 1.75; display: -webkit-box;
+    -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .article-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 14px;
+    font-size: 0.75rem; color: var(--text-light);
+  }
+  .read-btn {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.78rem; font-weight: 500;
+    color: var(--sage-dark); cursor: pointer;
+    background: none; border: none;
+    font-family: 'Noto Sans SC', sans-serif;
+    padding: 0;
+    transition: gap 0.2s;
+  }
+  .read-btn:hover { gap: 8px; }
+
+  /* Article Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(44,62,45,0.4); backdrop-filter: blur(6px);
+    z-index: 500; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--warm-white);
+    border-radius: 28px;
+    max-width: 640px; width: 100%;
+    max-height: 85vh; overflow-y: auto;
+    padding: 40px;
+    position: relative;
+    box-shadow: 0 24px 80px rgba(44,62,45,0.25);
+    animation: modalIn 0.3s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .modal-close {
+    position: absolute; top: 20px; right: 24px;
+    background: rgba(122,158,126,0.12); border: none;
+    width: 36px; height: 36px; border-radius: 50%;
+    font-size: 16px; cursor: pointer; color: var(--text-mid);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .modal-close:hover { background: rgba(122,158,126,0.25); }
+  .modal-emoji { font-size: 48px; margin-bottom: 16px; display: block; }
+  .modal-tag { margin-bottom: 12px; }
+  .modal h2 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1.5rem; color: var(--text-dark);
+    margin-bottom: 20px; line-height: 1.4;
+  }
+  .modal-content { font-size: 0.92rem; color: var(--text-mid); line-height: 1.95; }
+  .modal-content h4 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1rem; color: var(--text-dark);
+    margin: 20px 0 8px;
+  }
+  .modal-content p { margin-bottom: 12px; }
+  .modal-content ul { padding-left: 20px; }
+  .modal-content li { margin-bottom: 6px; }
+
+  /* ── QUIZ SECTION ── */
+  .quiz-container {
+    max-width: 640px; margin: 0 auto;
+  }
+  .quiz-intro {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 36px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .quiz-intro h2 {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 1.6rem; color: var(--text-dark);
+    margin-bottom: 10px;
+  }
+  .quiz-intro p { font-size: 0.88rem; color: var(--text-mid); line-height: 1.8; }
+
+  .quiz-card {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 36px;
+    box-shadow: var(--shadow);
+  }
+  .quiz-progress {
+    height: 4px; background: rgba(122,158,126,0.15);
+    border-radius: 2px; margin-bottom: 28px; overflow: hidden;
+  }
+  .quiz-progress-bar {
+    height: 100%; background: var(--sage);
+    border-radius: 2px; transition: width 0.5s ease;
+  }
+  .quiz-step { font-size: 0.78rem; color: var(--text-light); margin-bottom: 8px; }
+  .quiz-q {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1.05rem; font-weight: 400;
+    color: var(--text-dark); line-height: 1.7;
+    margin-bottom: 24px;
+  }
+  .quiz-options { display: flex; flex-direction: column; gap: 10px; }
+  .quiz-opt {
+    display: flex; align-items: center;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.7);
+    border: 1.5px solid rgba(122,158,126,0.2);
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 0.9rem; color: var(--text-mid);
+    font-family: 'Noto Sans SC', sans-serif;
+    transition: all 0.2s;
+    text-align: left;
+    gap: 12px;
+  }
+  .quiz-opt:hover {
+    border-color: var(--sage);
+    background: rgba(122,158,126,0.08);
+    color: var(--sage-dark);
+  }
+  .quiz-opt.selected {
+    border-color: var(--sage);
+    background: rgba(122,158,126,0.12);
+    color: var(--sage-dark); font-weight: 500;
+  }
+  .opt-radio {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1.5px solid rgba(122,158,126,0.4);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .quiz-opt.selected .opt-radio {
+    background: var(--sage); border-color: var(--sage);
+  }
+  .quiz-opt.selected .opt-radio::after {
+    content: ''; width: 6px; height: 6px;
+    background: white; border-radius: 50%;
+  }
+
+  .quiz-nav {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-top: 28px;
+  }
+  .quiz-btn {
+    padding: 11px 26px; border-radius: 50px;
+    border: none; cursor: pointer;
+    font-size: 0.88rem; font-family: 'Noto Sans SC', sans-serif;
+    transition: all 0.2s;
+  }
+  .quiz-btn.primary { background: var(--sage); color: white; }
+  .quiz-btn.primary:hover { background: var(--sage-dark); }
+  .quiz-btn.secondary {
+    background: rgba(255,255,255,0.8);
+    color: var(--text-mid);
+    border: 1px solid rgba(122,158,126,0.25);
+  }
+  .quiz-btn.secondary:hover { background: white; }
+  .quiz-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Quiz result */
+  .quiz-result {
+    text-align: center;
+    padding: 8px 0;
+  }
+  .result-emoji { font-size: 60px; margin-bottom: 16px; display: block; }
+  .result-score {
+    font-size: 3.5rem; font-weight: 600;
+    font-family: 'Noto Serif SC', serif;
+    color: var(--moss); line-height: 1;
+    margin-bottom: 4px;
+  }
+  .result-label {
+    font-size: 0.85rem; color: var(--text-light);
+    margin-bottom: 20px;
+  }
+  .result-title {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 1.4rem; color: var(--text-dark);
+    margin-bottom: 12px;
+  }
+  .result-desc {
+    font-size: 0.9rem; color: var(--text-mid);
+    line-height: 1.8; margin-bottom: 24px;
+    text-align: left; background: rgba(122,158,126,0.06);
+    border-radius: 14px; padding: 18px;
+    border-left: 3px solid var(--sage-light);
+  }
+  .result-tips { text-align: left; }
+  .result-tips h4 {
+    font-size: 0.88rem; font-weight: 500;
+    color: var(--text-dark); margin-bottom: 10px;
+  }
+  .result-tip {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 0.85rem; color: var(--text-mid);
+    margin-bottom: 8px; line-height: 1.6;
+  }
+  .tip-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── BREATHING SECTION ── */
+  .breathing-container {
+    max-width: 600px; margin: 0 auto;
+  }
+  .breathing-intro {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 32px; margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .breathing-intro h2 {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 1.5rem; color: var(--text-dark); margin-bottom: 8px;
+  }
+  .breathing-intro p { font-size: 0.88rem; color: var(--text-mid); line-height: 1.8; }
+
+  .exercise-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    margin-bottom: 20px;
+  }
+  .exercise-btn {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1.5px solid var(--glass-border);
+    border-radius: 16px; padding: 20px;
+    cursor: pointer; text-align: left;
+    transition: all 0.25s; box-shadow: var(--shadow);
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+  .exercise-btn:hover, .exercise-btn.selected {
+    border-color: var(--sage);
+    background: rgba(122,158,126,0.12);
+    transform: translateY(-2px);
+  }
+  .exercise-icon { font-size: 28px; margin-bottom: 10px; display: block; }
+  .exercise-name {
+    font-size: 0.92rem; font-weight: 500;
+    color: var(--text-dark); margin-bottom: 4px;
+  }
+  .exercise-desc { font-size: 0.78rem; color: var(--text-light); line-height: 1.5; }
+
+  .breathing-player {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 40px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .breath-circle-wrap {
+    position: relative;
+    width: 200px; height: 200px;
+    margin: 0 auto 28px;
+  }
+  .breath-svg { width: 100%; height: 100%; }
+  .breath-ring {
+    transition: all 0.1s linear;
+    transform-origin: 100px 100px;
+  }
+  .breath-inner {
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    background: rgba(122,158,126,0.15);
+    border: 2px solid rgba(122,158,126,0.3);
+    position: absolute; top: 30px; left: 30px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: transform 4s ease-in-out;
+  }
+  .breath-phase {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 1.3rem; color: var(--moss);
+  }
+  .breath-count {
+    font-size: 2.2rem; font-weight: 300;
+    color: var(--sage-dark);
+    font-family: 'Noto Serif SC', serif;
+    line-height: 1;
+  }
+  .breath-sub { font-size: 0.78rem; color: var(--text-light); }
+  .breath-cycles {
+    font-size: 0.85rem; color: var(--text-light); margin-bottom: 24px;
+  }
+  .breath-controls { display: flex; gap: 14px; justify-content: center; }
+  .breath-ctrl {
+    padding: 12px 28px; border-radius: 50px; border: none;
+    cursor: pointer; font-size: 0.9rem;
+    font-family: 'Noto Sans SC', sans-serif; transition: all 0.2s;
+  }
+  .breath-ctrl.start { background: var(--sage); color: white; }
+  .breath-ctrl.start:hover { background: var(--sage-dark); }
+  .breath-ctrl.reset {
+    background: rgba(255,255,255,0.8); color: var(--text-mid);
+    border: 1px solid rgba(122,158,126,0.25);
+  }
+  .breath-ctrl.reset:hover { background: white; }
+
+  /* ── RESOURCES SECTION ── */
+  .resources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+  }
+  .resource-card {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 26px;
+    box-shadow: var(--shadow);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .resource-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(61,92,64,0.14);
+  }
+  .resource-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; margin-bottom: 14px;
+  }
+  .resource-card h3 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1rem; font-weight: 600;
+    color: var(--text-dark); margin-bottom: 6px;
+  }
+  .resource-card p {
+    font-size: 0.83rem; color: var(--text-mid);
+    line-height: 1.75; margin-bottom: 14px;
+  }
+  .resource-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.8rem; font-weight: 500;
+    color: var(--sage-dark); text-decoration: none;
+    transition: gap 0.2s;
+  }
+  .resource-link:hover { gap: 10px; }
+
+  .hotline-banner {
+    background: linear-gradient(135deg, rgba(122,158,126,0.2), rgba(61,92,64,0.1));
+    border: 1px solid rgba(122,158,126,0.3);
+    border-radius: var(--radius); padding: 28px 32px;
+    display: flex; align-items: center; gap: 20px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .hotline-icon { font-size: 36px; }
+  .hotline-text h3 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1rem; color: var(--moss); margin-bottom: 4px;
+  }
+  .hotline-text p { font-size: 0.85rem; color: var(--text-mid); }
+  .hotline-nums {
+    margin-left: auto; display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .hotline-num {
+    background: white;
+    border: 1px solid rgba(122,158,126,0.25);
+    border-radius: 12px; padding: 10px 16px;
+    text-align: center;
+  }
+  .hotline-num .num {
+    font-size: 1.1rem; font-weight: 600; color: var(--moss);
+    display: block; font-family: 'Noto Serif SC', serif;
+  }
+  .hotline-num .label {
+    font-size: 0.72rem; color: var(--text-light); margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/home">
+    <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+      <circle cx="14" cy="14" r="13" stroke="#3d5c40" stroke-width="1.5"/>
+      <path d="M14 22 C14 22 8 17 8 12 C8 8.5 10.7 7 14 7 C17.3 7 20 8.5 20 12 C20 17 14 22 14 22Z" fill="#7a9e7e"/>
+    </svg>
+    心晴
+  </a>
+  <div class="nav-right">
+    <a class="nav-link" href="/home">首页</a>
+    <a class="nav-link" href="/select">树洞智能体</a>
+    <a class="nav-cta" href="/select">开始倾诉</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div>
+    <h1>🌿 心理润园</h1>
+    <p style="margin-top:10px">滋养心灵，从了解自己开始</p>
+  </div>
+  <p style="max-width:340px; text-align:right;">
+    心理健康科普 · 自我评测 · 放松练习 · 资源导航
+  </p>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('articles', this)">📚 心理科普</button>
+  <button class="tab-btn" onclick="switchTab('quiz', this)">🧩 心理自测</button>
+  <button class="tab-btn" onclick="switchTab('breathing', this)">🌬️ 呼吸放松</button>
+  <button class="tab-btn" onclick="switchTab('resources', this)">🔗 资源推荐</button>
+</div>
+
+<main>
+
+  <!-- ── ARTICLES ── -->
+  <div id="section-articles" class="section active">
+    <div class="articles-grid">
+
+      <div class="article-card" onclick="openModal('anxiety')">
+        <div class="article-img" style="background:linear-gradient(135deg,#fef3e2,#fde8c4);">😰</div>
+        <div class="article-body">
+          <span class="article-tag tag-anxiety">焦虑</span>
+          <h3>焦虑是什么？为什么我们会焦虑</h3>
+          <p>焦虑是一种对未来不确定性的自然反应，适度的焦虑可以帮助我们做更好的准备，但当焦虑过度时，便会影响我们的日常生活和身心健康……</p>
+          <div class="article-footer">
+            <span>阅读约 4 分钟</span>
+            <button class="read-btn">阅读全文 →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="article-card" onclick="openModal('depression')">
+        <div class="article-img" style="background:linear-gradient(135deg,#ede8f8,#d9d1f0);">😶</div>
+        <div class="article-body">
+          <span class="article-tag tag-depression">抑郁</span>
+          <h3>情绪低落与抑郁症：如何区分</h3>
+          <p>每个人都会经历情绪的起伏，但抑郁症与普通的情绪低落有所不同。了解两者的区别，有助于我们更好地认识自己的心理状态……</p>
+          <div class="article-footer">
+            <span>阅读约 5 分钟</span>
+            <button class="read-btn">阅读全文 →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="article-card" onclick="openModal('stress')">
+        <div class="article-img" style="background:linear-gradient(135deg,#e4f0e5,#c8dfc9);">🌱</div>
+        <div class="article-body">
+          <span class="article-tag tag-stress">压力管理</span>
+          <h3>大学生常见压力来源与应对策略</h3>
+          <p>学业、人际关系、未来规划……大学阶段的压力来源多样且复杂。掌握科学的压力管理方法，让压力成为成长的动力……</p>
+          <div class="article-footer">
+            <span>阅读约 6 分钟</span>
+            <button class="read-btn">阅读全文 →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="article-card" onclick="openModal('sleep')">
+        <div class="article-img" style="background:linear-gradient(135deg,#e0eef8,#c5dcf0);">🌙</div>
+        <div class="article-body">
+          <span class="article-tag tag-sleep">睡眠</span>
+          <h3>睡不着、睡不够？改善睡眠的七个方法</h3>
+          <p>睡眠与心理健康密切相关，长期睡眠不足会影响情绪调节、记忆力和免疫功能。好的睡眠习惯是心理健康的基础……</p>
+          <div class="article-footer">
+            <span>阅读约 4 分钟</span>
+            <button class="read-btn">阅读全文 →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="article-card" onclick="openModal('relationship')">
+        <div class="article-img" style="background:linear-gradient(135deg,#fde8ee,#f8c8d8);">💞</div>
+        <div class="article-body">
+          <span class="article-tag tag-relationship">人际关系</span>
+          <h3>在大学里建立健康的人际关系</h3>
+          <p>人际关系是大学生活的重要组成部分，良好的社会支持对心理健康有深远影响。了解如何建立真实、平等、互利的关系……</p>
+          <div class="article-footer">
+            <span>阅读约 5 分钟</span>
+            <button class="read-btn">阅读全文 →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="article-card" onclick="openModal('selfcare')">
+        <div class="article-img" style="background:linear-gradient(135deg,#faeadc,#f5d0b4);">✨</div>
+        <div class="article-body">
+          <span class="article-tag tag-selfcare">自我关怀</span>
+          <h3>自我关怀不是自私：学会照顾内心</h3>
+          <p>很多人把自我关怀视为软弱或自私，但实际上，照顾好自己是对他人负责的前提。正念、界限、自我接纳……一起来学习……</p>
+          <div class="article-footer">
+            <span>阅读约 5 分钟</span>
+            <button class="read-btn">阅读全文 →</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── QUIZ ── -->
+  <div id="section-quiz" class="section">
+    <div class="quiz-container">
+      <div class="quiz-intro">
+        <h2>心理健康自测</h2>
+        <p>以下测评基于通用心理健康量表改编，仅供参考，不作为医学诊断依据。<br>
+        请根据<strong>过去两周</strong>的真实感受作答。</p>
+      </div>
+      <div class="quiz-card" id="quiz-card">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BREATHING ── -->
+  <div id="section-breathing" class="section">
+    <div class="breathing-container">
+      <div class="breathing-intro">
+        <h2>呼吸放松练习</h2>
+        <p>呼吸练习是经过科学验证的放松技巧，能够激活副交感神经系统，帮助平复情绪、缓解焦虑。选择一种方式，找个安静的地方，开始练习。</p>
+      </div>
+
+      <div class="exercise-grid">
+        <button class="exercise-btn selected" onclick="selectExercise(this, '478', '4-7-8 呼吸法', [4,7,8], '深度放松')">
+          <span class="exercise-icon">🌊</span>
+          <div class="exercise-name">4-7-8 呼吸法</div>
+          <div class="exercise-desc">吸气4秒·屏息7秒·呼气8秒 · 深度放松，改善睡眠</div>
+        </button>
+        <button class="exercise-btn" onclick="selectExercise(this, 'box', '方形呼吸', [4,4,4,4], '平衡专注')">
+          <span class="exercise-icon">🔲</span>
+          <div class="exercise-name">方形呼吸</div>
+          <div class="exercise-desc">吸·屏·呼·屏 各4秒 · 缓解焦虑，提升专注</div>
+        </button>
+        <button class="exercise-btn" onclick="selectExercise(this, 'diaphragm', '腹式呼吸', [4,0,6], '缓解压力')">
+          <span class="exercise-icon">🌬️</span>
+          <div class="exercise-name">腹式呼吸</div>
+          <div class="exercise-desc">吸气4秒·呼气6秒 · 简单高效，随时可用</div>
+        </button>
+        <button class="exercise-btn" onclick="selectExercise(this, 'equal', '等长呼吸', [5,0,5], '平静清醒')">
+          <span class="exercise-icon">⚖️</span>
+          <div class="exercise-name">等长呼吸</div>
+          <div class="exercise-desc">吸气5秒·呼气5秒 · 温和平衡，适合新手</div>
+        </button>
+      </div>
+
+      <div class="breathing-player">
+        <div class="breath-circle-wrap">
+          <svg class="breath-svg" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(122,158,126,0.1)" stroke-width="12"/>
+            <circle id="breath-ring" cx="100" cy="100" r="90" fill="none"
+              stroke="#7a9e7e" stroke-width="8" stroke-linecap="round"
+              stroke-dasharray="565" stroke-dashoffset="565"
+              transform="rotate(-90 100 100)" style="transition:stroke-dashoffset 0.1s linear;"/>
+          </svg>
+          <div class="breath-inner" id="breath-inner">
+            <div class="breath-phase" id="breath-phase">准备</div>
+            <div class="breath-count" id="breath-count">—</div>
+            <div class="breath-sub" id="breath-sub">选择方式开始</div>
+          </div>
+        </div>
+        <div class="breath-cycles" id="breath-cycles">已完成 <strong>0</strong> 个循环</div>
+        <div class="breath-controls">
+          <button class="breath-ctrl start" id="breath-start-btn" onclick="toggleBreath()">▶ 开始练习</button>
+          <button class="breath-ctrl reset" onclick="resetBreath()">↺ 重置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RESOURCES ── -->
+  <div id="section-resources" class="section">
+    <div class="hotline-banner">
+      <div class="hotline-icon">📞</div>
+      <div class="hotline-text">
+        <h3>心理援助热线</h3>
+        <p>当你感到无法独自面对时，请不要犹豫，拨打热线寻求专业支持</p>
+      </div>
+      <div class="hotline-nums">
+        <div class="hotline-num">
+          <span class="num">400-161-9995</span>
+          <div class="label">北京心理危机研究与干预中心</div>
+        </div>
+        <div class="hotline-num">
+          <span class="num">400-820-1215</span>
+          <div class="label">上海心理援助热线</div>
+        </div>
+        <div class="hotline-num">
+          <span class="num">12320</span>
+          <div class="label">全国卫生热线</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="resources-grid">
+      <div class="resource-card">
+        <div class="resource-icon" style="background:rgba(201,169,110,0.15);">📖</div>
+        <h3>推荐书单</h3>
+        <p>《被讨厌的勇气》《蛤蟆先生去看心理医生》《正念：此刻是家》，这些书用温暖的语言讲述心理成长的故事。</p>
+        <a class="resource-link" href="#">查看完整书单 →</a>
+      </div>
+      <div class="resource-card">
+        <div class="resource-icon" style="background:rgba(155,143,200,0.15);">🎧</div>
+        <h3>冥想音频</h3>
+        <p>精选正念冥想、身体扫描、山谷冥想等引导音频，每次 10–20 分钟，帮助你沉淀内心、回归当下。</p>
+        <a class="resource-link" href="#">收听音频库 →</a>
+      </div>
+      <div class="resource-card">
+        <div class="resource-icon" style="background:rgba(122,158,126,0.15);">🏫</div>
+        <h3>校内心理咨询</h3>
+        <p>学校心理健康中心提供免费个人咨询和团体辅导，预约方式简单，保密性良好，欢迎有需要的同学预约。</p>
+        <a class="resource-link" href="#">了解预约方式 →</a>
+      </div>
+      <div class="resource-card">
+        <div class="resource-icon" style="background:rgba(138,184,200,0.15);">📱</div>
+        <h3>心理健康 App</h3>
+        <p>推荐：Headspace（正念冥想）、Woebot（情绪日记）、Keep（运动减压）。运动与正念是改善心情的有效方法。</p>
+        <a class="resource-link" href="#">查看 App 推荐 →</a>
+      </div>
+      <div class="resource-card">
+        <div class="resource-icon" style="background:rgba(200,143,160,0.15);">🌐</div>
+        <h3>专业资讯平台</h3>
+        <p>简单心理、壹心理、KnowYourself 等平台提供丰富的心理健康科普内容，由专业心理咨询师撰写。</p>
+        <a class="resource-link" href="#">浏览资讯平台 →</a>
+      </div>
+      <div class="resource-card">
+        <div class="resource-icon" style="background:rgba(193,127,90,0.15);">✏️</div>
+        <h3>情绪日记模板</h3>
+        <p>写日记是梳理情绪、认识自我的有效方式。我们提供结构化的情绪日记模板，引导你记录每天的心情变化。</p>
+        <a class="resource-link" href="#">下载模板 →</a>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Article Modals -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal-content">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+/* ── TAB SWITCHING ── */
+function switchTab(name, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ── ARTICLE MODALS ── */
+const articles = {
+  anxiety: {
+    emoji: '😰', tag: '<span class="article-tag tag-anxiety">焦虑</span>',
+    title: '焦虑是什么？为什么我们会焦虑',
+    content: `
+      <p>焦虑是人类进化出来的一种保护机制。当大脑感知到潜在威胁时，杏仁核会触发"战斗-逃跑"反应，分泌肾上腺素，让我们的身体准备应对危险。</p>
+      <h4>适度焦虑是正常的</h4>
+      <p>考试前的紧张、演讲前的心跳加速，这些都是正常的焦虑反应，它们能帮助我们提高警觉、做更好的准备。问题在于当焦虑变得过度、持续且影响生活时。</p>
+      <h4>焦虑症的常见表现</h4>
+      <ul>
+        <li>持续的担忧和恐惧，难以控制</li>
+        <li>身体症状：心跳加速、肌肉紧张、出汗、头痛</li>
+        <li>回避引发焦虑的情境</li>
+        <li>难以集中注意力，睡眠障碍</li>
+        <li>过度担心日常事务</li>
+      </ul>
+      <h4>如何应对焦虑</h4>
+      <p>深呼吸和正念练习是经过科学验证的方法。当焦虑来袭时，尝试4-7-8呼吸法，或者将注意力拉回到当下的感官体验（看到什么？听到什么？感受到什么？）。如果焦虑严重影响生活，请寻求专业帮助。</p>
+    `
+  },
+  depression: {
+    emoji: '😶', tag: '<span class="article-tag tag-depression">抑郁</span>',
+    title: '情绪低落与抑郁症：如何区分',
+    content: `
+      <p>每个人都会经历情绪低落的时候，这是完全正常的情绪体验。但抑郁症是一种医学状况，需要专业的关注和治疗。</p>
+      <h4>普通情绪低落</h4>
+      <p>通常有明确的原因（考试失败、失恋、朋友冲突），持续时间较短（几天到两周），情绪会随着情况改善或时间流逝而恢复，仍然能够享受喜欢的事物。</p>
+      <h4>抑郁症的信号</h4>
+      <ul>
+        <li>持续两周以上的情绪低落或空洞感</li>
+        <li>对曾经喜欢的事物失去兴趣</li>
+        <li>显著的体重变化、睡眠障碍</li>
+        <li>疲惫、注意力难以集中</li>
+        <li>感到无价值、过度自责</li>
+        <li>出现轻生念头（这是需要立即寻求帮助的信号）</li>
+      </ul>
+      <h4>重要的提示</h4>
+      <p>抑郁症是可以治疗的。如果你怀疑自己或身边的人可能患有抑郁症，请不要独自承受，鼓励寻求专业心理咨询或医疗帮助。</p>
+    `
+  },
+  stress: {
+    emoji: '🌱', tag: '<span class="article-tag tag-stress">压力管理</span>',
+    title: '大学生常见压力来源与应对策略',
+    content: `
+      <p>大学阶段是人生中充满变化的时期，多种压力叠加往往让人感到不知所措。了解压力的来源是管理压力的第一步。</p>
+      <h4>常见压力来源</h4>
+      <ul>
+        <li><strong>学业压力</strong>：课程难度、考试、毕业要求</li>
+        <li><strong>人际关系</strong>：室友矛盾、社交适应、恋爱问题</li>
+        <li><strong>未来焦虑</strong>：就业、考研、人生方向</li>
+        <li><strong>经济压力</strong>：生活费用、兼职与学业的平衡</li>
+        <li><strong>家庭期望</strong>：与父母的期待差距</li>
+      </ul>
+      <h4>科学应对策略</h4>
+      <p><strong>问题导向</strong>：针对可以解决的问题，制定计划，拆解任务，寻求帮助。</p>
+      <p><strong>情绪导向</strong>：针对无法立即改变的情况，通过运动、倾诉、创作等方式释放情绪。</p>
+      <p><strong>意义导向</strong>：重新看待压力，将其视为成长的机会而非威胁。</p>
+      <h4>日常减压习惯</h4>
+      <ul>
+        <li>每周3次，每次30分钟的有氧运动</li>
+        <li>保证7-8小时的规律睡眠</li>
+        <li>与朋友保持真实连接，而非只靠社交媒体</li>
+        <li>学会说"不"，设定合理的界限</li>
+      </ul>
+    `
+  },
+  sleep: {
+    emoji: '🌙', tag: '<span class="article-tag tag-sleep">睡眠</span>',
+    title: '睡不着、睡不够？改善睡眠的七个方法',
+    content: `
+      <p>睡眠是心理健康的基石。长期睡眠不足不仅影响记忆力和学习能力，还会加重焦虑和抑郁情绪，形成恶性循环。</p>
+      <h4>七个改善睡眠的方法</h4>
+      <ul>
+        <li><strong>固定作息时间</strong>：即使在周末，也尽量在同一时间入睡和起床，帮助调节生物钟。</li>
+        <li><strong>睡前一小时放下手机</strong>：蓝光抑制褪黑素分泌，睡前刷手机是入睡困难的主要原因之一。</li>
+        <li><strong>创造睡眠环境</strong>：确保卧室黑暗、凉爽（18-20℃最佳）、安静。</li>
+        <li><strong>避免睡前咖啡因</strong>：咖啡、浓茶在体内的作用可持续6-8小时。</li>
+        <li><strong>睡前放松仪式</strong>：洗热水澡、轻柔阅读、冥想或拉伸，帮助身心从"工作模式"切换到"休息模式"。</li>
+        <li><strong>限制白天小睡</strong>：如果必须午睡，控制在20分钟以内，且不要在下午3点后睡。</li>
+        <li><strong>不要在床上做其他事</strong>：床只用于睡眠，帮助大脑建立"床=睡眠"的条件反射。</li>
+      </ul>
+      <p>如果以上方法尝试4周以上仍无改善，建议寻求专业医疗帮助，排除睡眠障碍的可能。</p>
+    `
+  },
+  relationship: {
+    emoji: '💞', tag: '<span class="article-tag tag-relationship">人际关系</span>',
+    title: '在大学里建立健康的人际关系',
+    content: `
+      <p>研究表明，高质量的社会支持是心理健康最重要的保护因素之一。在大学里，建立真实的连接比积累大量泛泛之交更有价值。</p>
+      <h4>健康关系的特征</h4>
+      <ul>
+        <li>相互尊重，不把自己的意志强加于人</li>
+        <li>坦诚沟通，可以表达真实想法和感受</li>
+        <li>界限清晰，双方都有独立的空间</li>
+        <li>关系中存在付出与接受的平衡</li>
+        <li>让你感到被接纳和支持，而非消耗</li>
+      </ul>
+      <h4>如何主动建立连接</h4>
+      <p>参加社团和兴趣小组，是找到志同道合者的最自然方式。不要害怕先迈出一步——大多数人都渴望真实的连接，只是不善于开口。</p>
+      <h4>当关系让你感到痛苦时</h4>
+      <p>如果某段关系持续让你感到被贬低、被忽视或被操控，这可能是一段不健康的关系。你有权利保护自己，设定界限，甚至选择退出。</p>
+    `
+  },
+  selfcare: {
+    emoji: '✨', tag: '<span class="article-tag tag-selfcare">自我关怀</span>',
+    title: '自我关怀不是自私：学会照顾内心',
+    content: `
+      <p>"你必须先照顾好自己，才能照顾好别人。"自我关怀不是软弱的表现，而是心理健康的必要条件。</p>
+      <h4>什么是真正的自我关怀</h4>
+      <p>自我关怀不仅仅是"享乐"（虽然享受美食和娱乐也是一部分），更重要的是：倾听自己的需求、设定合理的界限、在困难时对自己温柔、以同理心对待自己的错误和不完美。</p>
+      <h4>正念自我关怀的三个维度</h4>
+      <ul>
+        <li><strong>正念</strong>：觉察当下的情绪和感受，不评判，不逃避</li>
+        <li><strong>共同人性</strong>：认识到痛苦和不完美是每个人都会经历的，你并不孤独</li>
+        <li><strong>自我善意</strong>：用对待好朋友的温柔，来对待自己</li>
+      </ul>
+      <h4>实践自我关怀的小练习</h4>
+      <p>当你感到自我批判时，停下来问自己：如果我最好的朋友正在经历同样的事，我会对他/她说什么？然后把那些话送给自己。</p>
+    `
+  }
+};
+
+function openModal(key) {
+  const a = articles[key];
+  document.getElementById('modal-body').innerHTML = `
+    <span class="modal-emoji">${a.emoji}</span>
+    <div class="modal-tag">${a.tag}</div>
+    <h2>${a.title}</h2>
+    <div class="modal-content">${a.content}</div>
+  `;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+/* ── QUIZ ── */
+const questions = [
+  { q: '在过去两周里，你有多少天感到情绪低落、沮丧或绝望？', opts: ['几乎没有', '有几天（1-6天）', '超过一半时间', '几乎每天'] },
+  { q: '在过去两周里，你有多少天对日常活动失去了兴趣或乐趣？', opts: ['几乎没有', '有几天（1-6天）', '超过一半时间', '几乎每天'] },
+  { q: '你最近的睡眠状况如何？', opts: ['睡眠良好', '偶尔睡眠不佳', '经常难以入睡或早醒', '睡眠严重困扰我'] },
+  { q: '你最近感到疲惫或缺乏活力的频率？', opts: ['很少', '有时候', '经常', '几乎每天'] },
+  { q: '你最近在集中注意力、思考或做决定方面有困难吗？', opts: ['没有困难', '偶有困难', '经常有困难', '几乎无法集中'] },
+  { q: '你最近感到焦虑、紧张或坐立不安的频率？', opts: ['几乎没有', '有时候', '经常', '几乎每天'] },
+  { q: '你觉得自己目前的社会支持（朋友、家人等）状况如何？', opts: ['支持充足', '基本够用', '支持较少', '几乎没有支持'] },
+];
+let qIdx = 0, answers = [];
+
+function renderQuiz() {
+  const isResult = qIdx >= questions.length;
+  const card = document.getElementById('quiz-card');
+  if (isResult) { showResult(); return; }
+  const q = questions[qIdx];
+  const progress = ((qIdx) / questions.length) * 100;
+  card.innerHTML = `
+    <div class="quiz-progress"><div class="quiz-progress-bar" style="width:${progress}%"></div></div>
+    <div class="quiz-step">第 ${qIdx+1} 题 / 共 ${questions.length} 题</div>
+    <div class="quiz-q">${q.q}</div>
+    <div class="quiz-options">
+      ${q.opts.map((o, i) => `
+        <button class="quiz-opt" onclick="selectOpt(this, ${i})">
+          <div class="opt-radio"></div>
+          ${o}
+        </button>`).join('')}
+    </div>
+    <div class="quiz-nav">
+      <button class="quiz-btn secondary" onclick="prevQ()" ${qIdx===0?'disabled':''}>← 上一题</button>
+      <button class="quiz-btn primary" id="next-btn" onclick="nextQ()" disabled>下一题 →</button>
+    </div>
+  `;
+}
+
+function selectOpt(el, val) {
+  document.querySelectorAll('.quiz-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  answers[qIdx] = val;
+  document.getElementById('next-btn').disabled = false;
+  if (qIdx === questions.length - 1) {
+    document.getElementById('next-btn').textContent = '查看结果 ✓';
+  }
+}
+function nextQ() { if (answers[qIdx] === undefined) return; qIdx++; renderQuiz(); }
+function prevQ() { if (qIdx > 0) { qIdx--; renderQuiz(); } }
+
+function showResult() {
+  const total = answers.reduce((s, v) => s + v, 0);
+  const max = questions.length * 3;
+  const pct = Math.round((total / max) * 100);
+  let emoji, title, desc, tips;
+  if (pct <= 25) {
+    emoji = '🌟'; title = '心理状态良好';
+    desc = '从你的回答来看，你目前的心理状态整体较为积极健康。你有良好的睡眠、足够的社会支持，日常情绪也比较稳定。继续保持这些好习惯！';
+    tips = ['保持规律的运动和休息', '继续培养和珍惜身边的人际关系', '定期进行自我觉察，预防胜于治疗'];
+  } else if (pct <= 50) {
+    emoji = '🌤️'; title = '存在一些压力信号';
+    desc = '你的回答显示你最近可能承受了一定的压力，在某些方面有些不适。这很正常，大多数大学生都会经历这样的阶段。关键是不要忽视这些信号。';
+    tips = ['尝试放松练习（如本页的呼吸练习）', '与信任的朋友或家人分享你的感受', '确保基本的睡眠和规律饮食', '考虑前往校内心理中心预约咨询'];
+  } else if (pct <= 75) {
+    emoji = '🌧️'; title = '心理状态需要关注';
+    desc = '从你的回答来看，你目前的心理状态有些令人担忧，多个方面都受到了影响。请认真对待这些信号，主动寻求支持。你不需要独自面对这些。';
+    tips = ['建议预约心理咨询（校内免费资源）', '告诉至少一位信任的人你的感受', '减少对自己的额外要求，优先处理最重要的事', '拨打心理援助热线（如需即时支持）'];
+  } else {
+    emoji = '☁️'; title = '建议寻求专业帮助';
+    desc = '你的回答提示你正在经历较为严重的心理困扰。这不是你的错，也不意味着软弱。专业的心理支持可以帮助你走出困境，请尽快寻求帮助。';
+    tips = ['请尽快联系学校心理健康中心或医疗机构', '告诉你信任的人你的状态', '拨打24小时心理援助热线：400-161-9995', '如有伤害自己的想法，请立即拨打急救或危机热线'];
+  }
+
+  document.getElementById('quiz-card').innerHTML = `
+    <div class="quiz-result">
+      <span class="result-emoji">${emoji}</span>
+      <div class="result-score">${pct}<span style="font-size:1.2rem">%</span></div>
+      <div class="result-label">心理压力指数</div>
+      <div class="result-title">${title}</div>
+      <div class="result-desc">${desc}</div>
+      <div class="result-tips">
+        <h4>建议你：</h4>
+        ${tips.map(t => `<div class="result-tip"><span class="tip-icon">🌿</span>${t}</div>`).join('')}
+      </div>
+      <div style="margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <button class="quiz-btn secondary" onclick="qIdx=0;answers=[];renderQuiz()">重新测试</button>
+        <a class="quiz-btn primary" href="/select" style="text-decoration:none;display:inline-flex;align-items:center;">与树洞聊聊 →</a>
+      </div>
+    </div>
+  `;
+}
+renderQuiz();
+
+/* ── BREATHING ── */
+let breathTimer = null, breathRunning = false;
+let breathCycles = 0;
+let currentExercise = { phases: ['吸气','屏息','呼气'], durations: [4,7,8], name: '4-7-8 呼吸法' };
+let phaseIdx = 0, countdown = 0;
+
+function selectExercise(btn, id, name, dur, tag) {
+  document.querySelectorAll('.exercise-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const phaseMap = {
+    '478': ['吸气','屏息','呼气'],
+    'box': ['吸气','屏息','呼气','屏息'],
+    'diaphragm': ['吸气','呼气'],
+    'equal': ['吸气','呼气']
+  };
+  currentExercise = { phases: phaseMap[id], durations: dur, name };
+  if (breathRunning) resetBreath();
+  document.getElementById('breath-phase').textContent = '准备';
+  document.getElementById('breath-count').textContent = '—';
+  document.getElementById('breath-sub').textContent = name;
+}
+
+function toggleBreath() {
+  if (breathRunning) {
+    pauseBreath();
+  } else {
+    startBreath();
+  }
+}
+
+function startBreath() {
+  breathRunning = true;
+  document.getElementById('breath-start-btn').textContent = '⏸ 暂停';
+  if (countdown === 0) {
+    phaseIdx = 0;
+    countdown = currentExercise.durations[0];
+  }
+  runPhase();
+}
+
+function pauseBreath() {
+  breathRunning = false;
+  clearTimeout(breathTimer);
+  document.getElementById('breath-start-btn').textContent = '▶ 继续';
+}
+
+function resetBreath() {
+  breathRunning = false;
+  clearTimeout(breathTimer);
+  breathCycles = 0; phaseIdx = 0; countdown = 0;
+  document.getElementById('breath-start-btn').textContent = '▶ 开始练习';
+  document.getElementById('breath-phase').textContent = '准备';
+  document.getElementById('breath-count').textContent = '—';
+  document.getElementById('breath-sub').textContent = currentExercise.name;
+  document.getElementById('breath-cycles').innerHTML = '已完成 <strong>0</strong> 个循环';
+  document.getElementById('breath-ring').style.strokeDashoffset = '565';
+}
+
+function runPhase() {
+  if (!breathRunning) return;
+  const phase = currentExercise.phases[phaseIdx];
+  const dur = currentExercise.durations[phaseIdx];
+  document.getElementById('breath-phase').textContent = phase;
+  document.getElementById('breath-sub').textContent = currentExercise.name;
+
+  let elapsed = dur - countdown + 1;
+  const updateTick = () => {
+    if (!breathRunning) return;
+    document.getElementById('breath-count').textContent = countdown;
+    // ring progress
+    const totalDur = dur;
+    const progress = (totalDur - countdown + 1) / totalDur;
+    const offset = 565 * (1 - progress * (1 / currentExercise.phases.length) - phaseIdx / currentExercise.phases.length);
+    const globalProgress = (phaseIdx / currentExercise.phases.length) + (progress / currentExercise.phases.length);
+    document.getElementById('breath-ring').style.strokeDashoffset = 565 * (1 - globalProgress);
+
+    if (countdown <= 0) {
+      phaseIdx++;
+      if (phaseIdx >= currentExercise.phases.length) {
+        phaseIdx = 0; breathCycles++;
+        document.getElementById('breath-cycles').innerHTML = `已完成 <strong>${breathCycles}</strong> 个循环`;
+      }
+      countdown = currentExercise.durations[phaseIdx];
+      breathTimer = setTimeout(runPhase, 300);
+      return;
+    }
+    countdown--;
+    breathTimer = setTimeout(updateTick, 1000);
+  };
+  updateTick();
+}
+</script>
+</body>
+</html>

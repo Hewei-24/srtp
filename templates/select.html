@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>选择助手 · 树洞智能体 · 心晴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── DESIGN TOKENS ── */
+:root {
+  --sage:          #7a9e7e;
+  --sage-light:    #b8d4bb;
+  --sage-dark:     #4a6b4e;
+  --moss:          #3d5c40;
+  --cream:         #f8f4ee;
+  --warm-white:    #fdfaf6;
+  --sky:           #8ab8c8;
+  --gold:          #c9a96e;
+  --terracotta:    #c17f5a;
+  --text-dark:     #2c3e2d;
+  --text-mid:      #5a6b5c;
+  --text-light:    #8a9b8c;
+  --glass:         rgba(255,255,255,0.68);
+  --glass-border:  rgba(255,255,255,0.82);
+  --shadow:        0 6px 32px rgba(61,92,64,0.10);
+  --shadow-hover:  0 14px 48px rgba(61,92,64,0.17);
+  --radius:        24px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  min-height: 100vh;
+  background-color: #e8f0e4;
+  background-image:
+    radial-gradient(ellipse at 10% 5%,  rgba(122,158,126,0.32) 0%, transparent 48%),
+    radial-gradient(ellipse at 90% 95%, rgba(138,184,200,0.20) 0%, transparent 48%),
+    radial-gradient(ellipse at 55% 50%, rgba(201,169,110,0.07) 0%, transparent 35%);
+  color: var(--text-dark);
+}
+
+/* ── NAV ── */
+nav {
+  position: sticky; top:0; z-index:200;
+  display: flex; align-items:center; justify-content:space-between;
+  padding: 15px 48px;
+  background: rgba(248,244,238,0.80);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(122,158,126,0.18);
+}
+.nav-logo {
+  font-family: 'ZCOOL XiaoWei', serif;
+  font-size: 1.4rem; color: var(--moss);
+  text-decoration: none;
+  display: flex; align-items:center; gap:9px;
+}
+.nav-logo svg { width:26px; height:26px; }
+.nav-links { display:flex; align-items:center; gap:28px; }
+.nav-link {
+  text-decoration:none; font-size:0.88rem;
+  color: var(--text-mid); transition: color 0.2s;
+}
+.nav-link:hover { color: var(--moss); }
+.nav-link.active { color: var(--sage-dark); font-weight:500; }
+
+/* ── PAGE HERO ── */
+.page-hero {
+  text-align: center;
+  padding: 56px 24px 40px;
+}
+.page-hero .breadcrumb {
+  display: inline-flex; align-items:center; gap:6px;
+  font-size:0.78rem; color: var(--text-light);
+  letter-spacing:0.05em; margin-bottom:18px;
+}
+.page-hero .breadcrumb a { color: var(--text-light); text-decoration:none; }
+.page-hero .breadcrumb a:hover { color: var(--sage-dark); }
+.page-hero h1 {
+  font-family: 'ZCOOL XiaoWei', serif;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  color: var(--text-dark); letter-spacing:0.07em;
+  margin-bottom: 10px;
+}
+.page-hero p {
+  font-family: 'Noto Serif SC', serif;
+  font-size:0.95rem; color: var(--text-mid);
+  font-weight:300; line-height:1.8;
+  letter-spacing:0.08em;
+}
+
+/* ── STEP INDICATOR ── */
+.steps {
+  display: flex; align-items:center; justify-content:center;
+  gap:0; margin: 0 auto 40px;
+  max-width: 420px;
+}
+.step-item {
+  display:flex; flex-direction:column; align-items:center;
+  gap:6px; flex:1;
+}
+.step-circle {
+  width:32px; height:32px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.8rem; font-weight:500;
+  border: 1.5px solid rgba(122,158,126,0.35);
+  background: rgba(255,255,255,0.6);
+  color: var(--text-light);
+  transition: all 0.3s;
+}
+.step-item.active .step-circle {
+  background: var(--sage); border-color: var(--sage);
+  color: white; box-shadow: 0 3px 12px rgba(122,158,126,0.4);
+}
+.step-item.done .step-circle {
+  background: var(--sage-light); border-color: var(--sage-light);
+  color: var(--moss);
+}
+.step-label { font-size:0.72rem; color: var(--text-light); white-space:nowrap; }
+.step-item.active .step-label { color: var(--sage-dark); font-weight:500; }
+.step-line {
+  flex:1; height:1.5px;
+  background: rgba(122,158,126,0.22);
+  margin-bottom: 22px;
+}
+
+/* ── MAIN CONTENT ── */
+main {
+  max-width: 1100px; margin: 0 auto;
+  padding: 0 48px 80px;
+}
+@media (max-width:768px) {
+  nav, main { padding-left:20px; padding-right:20px; }
+  .page-hero { padding-left:20px; padding-right:20px; }
+}
+
+/* ── SECTION TITLE ── */
+.section-label {
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:20px;
+}
+.section-label h2 {
+  font-family: 'Noto Serif SC', serif;
+  font-size:1.1rem; font-weight:600; color: var(--text-dark);
+}
+.section-label .line {
+  flex:1; height:1px; background: rgba(122,158,126,0.2);
+}
+
+/* ── AVATAR GRID ── */
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 18px;
+  margin-bottom: 40px;
+}
+.avatar-card {
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 24px 20px 20px;
+  cursor: pointer;
+  text-align:center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  box-shadow: var(--shadow);
+  position:relative; overflow:hidden;
+}
+.avatar-card::before {
+  content:''; position:absolute; inset:0; border-radius:var(--radius);
+  background: linear-gradient(135deg, rgba(122,158,126,0.08), rgba(61,92,64,0.04));
+  opacity:0; transition: opacity 0.3s;
+}
+.avatar-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); }
+.avatar-card:hover::before { opacity:1; }
+.avatar-card.selected {
+  border-color: var(--sage);
+  box-shadow: 0 0 0 3px rgba(122,158,126,0.25), var(--shadow-hover);
+  transform: translateY(-5px);
+}
+.avatar-card.selected::before { opacity:1; }
+
+.avatar-img-wrap {
+  position:relative; margin-bottom:14px; display:inline-block;
+}
+.avatar-img-wrap img {
+  width:130px; height:130px;
+  object-fit:cover; border-radius:18px;
+  border: 2.5px solid rgba(255,255,255,0.8);
+  box-shadow: 0 4px 16px rgba(61,92,64,0.12);
+  transition: transform 0.3s;
+  display:block;
+}
+.avatar-card:hover .avatar-img-wrap img { transform: scale(1.03); }
+.avatar-card.selected .avatar-img-wrap img {
+  border-color: var(--sage-light);
+}
+.selected-badge {
+  display:none; position:absolute;
+  top:-6px; right:-6px;
+  width:22px; height:22px; border-radius:50%;
+  background: var(--sage); color:white;
+  font-size:11px; align-items:center; justify-content:center;
+  box-shadow: 0 2px 6px rgba(61,92,64,0.3);
+}
+.avatar-card.selected .selected-badge { display:flex; }
+
+.avatar-name {
+  font-family: 'Noto Serif SC', serif;
+  font-size:0.95rem; font-weight:600;
+  color: var(--text-dark); margin-bottom:4px;
+}
+.avatar-type {
+  font-size:0.75rem; color: var(--text-light);
+  letter-spacing:0.05em;
+}
+.avatar-tag {
+  display:inline-block; margin-top:8px;
+  font-size:0.7rem; padding:3px 10px; border-radius:50px;
+  background: rgba(122,158,126,0.12); color: var(--sage-dark);
+  letter-spacing:0.04em;
+}
+
+/* ── UPLOAD PANEL ── */
+.upload-panel {
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  border: 1.5px dashed rgba(122,158,126,0.35);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  display:flex; align-items:center; gap:24px;
+  margin-bottom: 40px;
+  transition: border-color 0.2s, background 0.2s;
+  flex-wrap: wrap;
+}
+.upload-panel:hover {
+  border-color: var(--sage);
+  background: rgba(255,255,255,0.78);
+}
+.upload-icon {
+  width:52px; height:52px; border-radius:16px;
+  background: rgba(122,158,126,0.12);
+  display:flex; align-items:center; justify-content:center;
+  font-size:24px; flex-shrink:0;
+}
+.upload-text h3 {
+  font-family: 'Noto Serif SC', serif;
+  font-size:0.98rem; color: var(--text-dark); margin-bottom:4px;
+}
+.upload-text p { font-size:0.8rem; color: var(--text-light); line-height:1.6; }
+.upload-btn-wrap { margin-left:auto; }
+.upload-btn {
+  display:inline-flex; align-items:center; gap:8px;
+  padding: 10px 22px; border-radius:50px;
+  border: 1.5px solid rgba(122,158,126,0.4);
+  background: rgba(255,255,255,0.8);
+  color: var(--sage-dark); font-size:0.85rem;
+  cursor:pointer; font-family:'Noto Sans SC',sans-serif;
+  transition: all 0.2s;
+}
+.upload-btn:hover {
+  background: var(--sage); color:white;
+  border-color: var(--sage);
+}
+input[type="file"] { display:none; }
+
+/* ── CONTINUE BAR ── */
+.continue-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  z-index:100;
+  background: rgba(248,244,238,0.92);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid rgba(122,158,126,0.2);
+  padding: 16px 48px;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:20px; flex-wrap:wrap;
+  transition: transform 0.4s ease;
+}
+.continue-bar.hidden { transform: translateY(100%); }
+.selected-preview {
+  display:flex; align-items:center; gap:12px;
+}
+.preview-avatar {
+  width:40px; height:40px; border-radius:12px;
+  object-fit:cover; border:2px solid rgba(122,158,126,0.3);
+}
+.preview-text { font-size:0.85rem; }
+.preview-text span { display:block; }
+.preview-name { font-weight:500; color: var(--text-dark); }
+.preview-hint { color: var(--text-light); font-size:0.78rem; margin-top:1px; }
+
+.continue-btn {
+  padding: 13px 36px; border-radius:50px;
+  border:none; background: var(--sage);
+  color:white; font-size:0.95rem; font-weight:500;
+  cursor:pointer; font-family:'Noto Sans SC',sans-serif;
+  transition: all 0.25s;
+  box-shadow: 0 4px 16px rgba(122,158,126,0.35);
+  display:flex; align-items:center; gap:8px;
+}
+.continue-btn:hover:not(:disabled) {
+  background: var(--moss);
+  box-shadow: 0 6px 24px rgba(61,92,64,0.4);
+  transform: translateY(-1px);
+}
+.continue-btn:disabled {
+  background: rgba(122,158,126,0.3); color:rgba(255,255,255,0.7);
+  cursor:not-allowed; box-shadow:none;
+}
+
+/* ── LOADING SKELETON ── */
+.skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.5) 25%,
+    rgba(255,255,255,0.8) 50%,
+    rgba(255,255,255,0.5) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius:12px;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── TOAST ── */
+.toast {
+  position:fixed; bottom:100px; left:50%; transform:translateX(-50%) translateY(20px);
+  background: var(--moss); color:white;
+  padding: 10px 22px; border-radius:50px;
+  font-size:0.85rem; opacity:0;
+  transition: all 0.3s; z-index:300; pointer-events:none;
+  white-space:nowrap;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.fade-up { animation: fadeUp 0.5s ease both; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="/home">
+    <svg viewBox="0 0 28 28" fill="none">
+      <circle cx="14" cy="14" r="13" stroke="#3d5c40" stroke-width="1.5"/>
+      <path d="M14 22C14 22 8 17 8 12C8 8.5 10.7 7 14 7C17.3 7 20 8.5 20 12C20 17 14 22 14 22Z" fill="#7a9e7e"/>
+      <path d="M14 22L14 7" stroke="#3d5c40" stroke-width="1" stroke-dasharray="2 2"/>
+    </svg>
+    心晴
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="/home">首页</a>
+    <a class="nav-link" href="/garden">心理润园</a>
+    <a class="nav-link active" href="/select">树洞智能体</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="page-hero fade-up">
+  <div class="breadcrumb">
+    <a href="/home">心晴</a>
+    <span>›</span>
+    <span>树洞智能体</span>
+  </div>
+  <h1>🌳 选择你的倾诉对象</h1>
+  <p>选择一位数字人助手，开启你的私密心理倾诉之旅</p>
+</div>
+
+<!-- STEPS -->
+<div class="steps fade-up" style="animation-delay:0.1s">
+  <div class="step-item active">
+    <div class="step-circle">1</div>
+    <div class="step-label">选择助手</div>
+  </div>
+  <div class="step-line"></div>
+  <div class="step-item">
+    <div class="step-circle">2</div>
+    <div class="step-label">开始对话</div>
+  </div>
+  <div class="step-line"></div>
+  <div class="step-item">
+    <div class="step-circle">3</div>
+    <div class="step-label">获得分析</div>
+  </div>
+</div>
+
+<main>
+  <!-- PRESET AVATARS -->
+  <div class="section-label fade-up" style="animation-delay:0.15s">
+    <h2>预置助手</h2>
+    <div class="line"></div>
+  </div>
+  <div class="avatar-grid fade-up" id="preset-avatars" style="animation-delay:0.2s">
+    <!-- skeleton placeholders -->
+    <div class="avatar-card" style="pointer-events:none">
+      <div class="avatar-img-wrap">
+        <div class="skeleton" style="width:130px;height:130px;border-radius:18px;"></div>
+      </div>
+      <div class="skeleton" style="height:14px;width:70%;margin:14px auto 6px;"></div>
+      <div class="skeleton" style="height:11px;width:50%;margin:0 auto;"></div>
+    </div>
+    <div class="avatar-card" style="pointer-events:none">
+      <div class="avatar-img-wrap">
+        <div class="skeleton" style="width:130px;height:130px;border-radius:18px;"></div>
+      </div>
+      <div class="skeleton" style="height:14px;width:70%;margin:14px auto 6px;"></div>
+      <div class="skeleton" style="height:11px;width:50%;margin:0 auto;"></div>
+    </div>
+    <div class="avatar-card" style="pointer-events:none">
+      <div class="avatar-img-wrap">
+        <div class="skeleton" style="width:130px;height:130px;border-radius:18px;"></div>
+      </div>
+      <div class="skeleton" style="height:14px;width:70%;margin:14px auto 6px;"></div>
+      <div class="skeleton" style="height:11px;width:50%;margin:0 auto;"></div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="section-label fade-up" style="animation-delay:0.25s">
+    <h2>自定义形象</h2>
+    <div class="line"></div>
+  </div>
+  <div class="upload-panel fade-up" style="animation-delay:0.3s">
+    <div class="upload-icon">🖼️</div>
+    <div class="upload-text">
+      <h3>上传你的专属形象</h3>
+      <p>支持 PNG、JPG、JPEG、GIF、BMP、WebP 格式<br>建议使用清晰的正脸照片以获得最佳效果</p>
+    </div>
+    <div class="upload-btn-wrap">
+      <label class="upload-btn" for="file-input">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1v8M4 4l3-3 3 3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>上传自定义形象</span>
+      </label>
+      <input type="file" id="file-input" accept="image/*">
+    </div>
+  </div>
+</main>
+
+<!-- CONTINUE BAR (hidden until selection) -->
+<div class="continue-bar hidden" id="continue-bar">
+  <div class="selected-preview">
+    <img class="preview-avatar" id="preview-img" src="" alt="">
+    <div class="preview-text">
+      <span class="preview-name" id="preview-name">未选择</span>
+      <span class="preview-hint">已选择助手，点击右侧开始</span>
+    </div>
+  </div>
+  <button class="continue-btn" id="continue-btn" onclick="window.location.href='/index'">
+    开始倾诉
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M3 8h10M9 4l4 4-4 4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { API } from '/static/js/api.js';
+
+const container = document.getElementById('preset-avatars');
+const uploadInput = document.getElementById('file-input');
+const continueBar = document.getElementById('continue-bar');
+const previewImg  = document.getElementById('preview-img');
+const previewName = document.getElementById('preview-name');
+const continueBtn = document.getElementById('continue-btn');
+
+/* ── load avatars ── */
+async function loadAvatars() {
+  const data = await API.getAvatars();
+  if (data.success) renderList(data.avatars);
+}
+
+const TAGS = ['倾听者', '陪伴者', '引导者', '支持者', '探索者'];
+function renderList(list) {
+  container.innerHTML = list.map((av, i) => `
+    <div class="avatar-card" data-id="${av.id}" data-url="${av.image_url}" data-name="${av.name}"
+         onclick="selectAvatar(this)">
+      <div class="avatar-img-wrap">
+        <img src="${av.image_url}" alt="${av.name}" loading="lazy">
+        <div class="selected-badge">✓</div>
+      </div>
+      <div class="avatar-name">${av.name}</div>
+      <div class="avatar-type">${av.type === 'preset' ? '预置助手' : '自定义'}</div>
+      <span class="avatar-tag">${TAGS[i % TAGS.length]}</span>
+    </div>
+  `).join('');
+}
+
+/* ── select ── */
+window.selectAvatar = (card) => {
+  document.querySelectorAll('.avatar-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+
+  const id   = card.dataset.id;
+  const url  = card.dataset.url;
+  const name = card.dataset.name;
+
+  localStorage.setItem('selectedAvatar', id);
+  localStorage.setItem('selectedAvatarName', name);
+  localStorage.setItem('selectedAvatarUrl', url);
+
+  previewImg.src  = url;
+  previewName.textContent = name;
+  continueBar.classList.remove('hidden');
+  continueBtn.textContent = '';
+  continueBtn.innerHTML = `作为「${name}」开始倾诉 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+};
+
+/* ── upload ── */
+uploadInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const span = document.querySelector('.upload-btn span');
+  span.textContent = '上传中…';
+  try {
+    const res = await API.uploadAvatar(file);
+    if (res.success) {
+      showToast('✅ 上传成功！');
+      loadAvatars();
+    } else {
+      showToast('❌ 上传失败：' + res.error);
+    }
+  } catch(err) {
+    showToast('❌ 网络错误，请稍后重试');
+  } finally {
+    span.textContent = '上传自定义形象';
+    e.target.value = '';
+  }
+});
+
+/* ── toast ── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ── restore previous selection ── */
+const savedId = localStorage.getItem('selectedAvatar');
+if (savedId) {
+  // restore after avatars loaded
+  const orig = window.renderList;
+}
+
+loadAvatars().then(() => {
+  const savedId = localStorage.getItem('selectedAvatar');
+  if (savedId) {
+    const card = document.querySelector(`.avatar-card[data-id="${savedId}"]`);
+    if (card) selectAvatar(card);
+  }
+});
+</script>
+</body>
+</html>
