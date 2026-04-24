@@ -1,357 +1,390 @@
-# 大学生心理分析数字人代理
+# 心晴 · 大学生心理健康辅助系统
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.13-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Flask-2.3+-green.svg" alt="Flask">
-  <img src="https://img.shields.io/badge/DeepFace-0.0.79+-orange.svg" alt="DeepFace">
-  <img src="https://img.shields.io/badge/Three.js-r128-purple.svg" alt="Three.js">
-  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License">
-</p>
+> 基于本地大模型 + 数字人技术的大学生心理健康服务平台
+>
+> SRTP 项目组 · v2.4
 
-一个基于 AI 的大学生心理健康支持系统，结合**实时面部表情识别**与**智能心理咨询**，为大学生提供个性化的心理健康服务。
+---
 
-## 功能特性
+## 项目简介
 
-### 核心功能
+**心晴**是一款面向在校大学生的智能心理健康辅助系统，集成本地微调心理大模型、实时面部情绪识别、数字人视频合成与 TTS 语音合成四项核心技术，以"树洞智能体"和"心理润园"两大模块为主体，为大学生提供私密、温暖、随时可用的心理健康支持。
 
-- **实时表情识别**: 基于 DeepFace 库，支持识别 7 种情绪（开心、悲伤、生气、恐惧、惊讶、厌恶、平静）
-- **AI 心理咨询**: 集成 DeepSeek API，提供专业、温暖的心理支持和建议
-- **3D 数字人交互**: 基于 Three.js 的可爱雪人形象，根据情绪实时变化表情
-- **多模态分析**: 结合文字输入与面部表情，提供更精准的心理状态评估
-- **对话历史管理**: 支持多轮对话，保持上下文连贯性
+本项目所有推理均在本地完成，无需联网调用商业 API，保护用户隐私。
 
-### 技术亮点
+---
 
-- 前后端分离架构，RESTful API 设计
-- WebRTC 实时视频流处理
-- 响应式 UI 设计，支持移动端访问
-- 支持本地模型与云端 API 双模式
+## 功能模块
 
-## 项目结构
+### 🌳 树洞智能体
+用户选择数字人助手后进入一对一对话界面：
+- 基于 Qwen1.5-0.5B 微调的心理咨询大模型，生成专业、温暖的回复
+- 实时摄像头情绪识别（DeepFace），结合面部情绪优化回复策略
+- Edge TTS 语音合成，配合预置说话视频实现数字人"开口说话"
+- 支持浏览器语音输入（Web Speech API）
+- 多数字人形象切换，支持用户上传自定义形象
+
+### 🌿 心理润园
+心理健康科普与自助工具集：
+- **科普文章**：焦虑、抑郁、压力、睡眠、人际关系、自我关怀等主题
+- **心理自测**：7 题心理健康量表，按得分提供分级建议
+- **呼吸放松**：4 种呼吸练习（4-7-8 / 方形 / 腹式 / 等长），带动画倒计时引导
+- **资源推荐**：心理援助热线、推荐书单、冥想音频、校内咨询入口
+
+---
+
+## 技术架构
 
 ```
-srtp/
-├── app.py                      # 主服务器 (Flask + DeepSeek API)
-├── integrated_server.py        # 集成服务器 (支持本地模型)
-├── psychological_agent.py      # 心理分析代理类
-├── index.html                  # 前端主页面
-├── requirements.txt            # Python 依赖
-├── pyproject.toml              # UV 包管理配置
-├── uv.lock                     # UV 锁定文件
-├── .python-version             # Python 版本配置
-├── templates/
-│   └── index.html              # Flask 模板页面
-└── outputs/
-    └── psychology_trained_model/
-        ├── psychology_training_data.json    # 训练数据
-        └── psychology_data_template.json    # 数据模板
+前端 (HTML / CSS / Vanilla JS ES Module)
+│
+├── home.html        统一首页与导航
+├── select.html      数字人助手选择页
+├── index.html       主对话页（树洞智能体）
+└── garden.html      心理润园
+
+后端 (Python · Flask)
+│
+├── app.py           主服务，RESTful API
+├── 本地大模型        Qwen1.5-0.5B + LoRA 微调适配器
+├── DeepFace         面部情绪识别
+├── Edge TTS         中文语音合成（离线）
+└── SadTalker        数字人视频驱动（可选）
+
+static/
+├── js/              前端模块（api / avatar / camera / speech）
+├── speaking_videos/ 预置说话视频（avatar1_talking.mp4 等）
+└── avatars/         数字人头像图片
+
+idle_videos/         待机循环视频
+models/              本地模型文件
+outputs/             LoRA 适配器权重
+audio_output/        TTS 生成音频（运行时生成）
+uploads/             用户上传形象（运行时生成）
 ```
+
+---
+
+## 环境要求
+
+| 项目 | 要求 |
+|------|------|
+| Python | 3.9 — 3.11 |
+| CUDA | 建议 11.8+（CPU 也可运行，速度较慢） |
+| 内存 | 建议 8 GB 以上 |
+| 磁盘 | 模型文件约 2 GB |
+| 浏览器 | Chrome 90+ / Edge 90+（语音功能需 HTTPS 或 localhost） |
+
+---
 
 ## 快速开始
 
-### 环境要求
+### 1. 克隆项目
 
-- Python 3.8 (SadTalker 依赖)
-- Python 3.13+ (主项目)
-- CUDA 11.8 (GPU 加速)
-- 摄像头（用于表情识别）
-- 现代浏览器（Chrome/Firefox/Edge）
+```bash
+git clone https://github.com/your-org/xinqing.git
+cd xinqing
+```
 
-### 安装步骤
+### 2. 安装依赖
 
-1. **克隆项目**
-   ```bash
-   git clone https://github.com/your-username/srtp.git
-   cd srtp
-   ```
+建议使用虚拟环境：
 
-2. **安装 SadTalker 依赖**
+```bash
+python -m venv venv
+# Windows
+venv\Scripts\activate
+# macOS / Linux
+source venv/bin/activate
+```
 
-   进入 SadTalker 目录并创建 Python 3.8 虚拟环境：
-   ```bash
-   cd SadTalker
-   uv venv --python 3.8
-   .venv\Scripts\activate
-   ```
+安装 Python 依赖：
 
-   安装依赖：
-   ```bash
-   uv pip install dlib-bin
-   uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-   uv pip install -r requirements.txt
-   ```
+```bash
+pip install flask flask-cors opencv-python numpy requests werkzeug
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install transformers peft accelerate
+pip install deepface
+pip install edge-tts
+pip install SpeechRecognition pydub
+```
 
-   **修复兼容性问题**：
+> **注意**：若无 GPU，将 `--index-url` 替换为 CPU 版本：
+> ```bash
+> pip install torch torchvision torchaudio
+> ```
 
-   打开文件 `.venv\lib\site-packages\basicsr\data\degradations.py`，找到第 8 行，将 `functional_tensor` 改为 `functional`：
-   ```python
-   # 修改前
-   from torchvision.transforms.functional_tensor import rgb_to_grayscale
-   # 修改后
-   from torchvision.transforms.functional import rgb_to_grayscale
-   ```
+### 3. 准备模型文件
 
-3. **下载模型权重**
+将 Qwen1.5-0.5B 基础模型放至：
+```
+models/Qwen1.5-0.5B/
+├── config.json
+├── tokenizer.json
+├── tokenizer_config.json
+└── model.safetensors（或分片文件）
+```
 
-   在 `SadTalker` 目录下新建 `checkpoints` 文件夹，结构如下：
-   ```
-   SadTalker/
-   └── checkpoints/
-       ├── SadTalker_V0.0.2_.pth
-       ├── mapping_00109-00224.pth
-       ├── mapping_00223-00443.pth
-       ├── mapping_00000-00223.pth
-       └── ...
-   ```
+将 LoRA 微调适配器放至：
+```
+outputs/psychology_trained_model/
+├── adapter_config.json
+└── adapter_model.safetensors
+```
 
-   下载地址：[SadTalker Releases](https://github.com/OpenTalker/SadTalker/releases)
+> 若无微调权重，系统会自动降级使用基础模型，功能不受影响。
 
-4. **配置 FFmpeg**
+### 4. 准备数字人资源
 
-   - 下载 [FFmpeg](https://www.gyan.dev/ffmpeg/builds/) (release-essentials)
-   - 解压后进入 `bin` 文件夹
-   - 将 `ffmpeg.exe` 和 `ffprobe.exe` 复制到 `SadTalker` 项目根目录
+```
+avatars/
+├── avatar1.png     # 预置形象 1
+├── avatar2.png     # 预置形象 2
+└── avatar3.png     # 预置形象 3
 
-5. **安装主项目依赖**
+static/speaking_videos/
+├── avatar1_talking.mp4   # 形象 1 说话视频（循环播放）
+├── avatar1_talking2.mp4  # 可放多个，系统随机选取
+└── avatar2_talking.mp4
 
-   回到主目录并安装依赖：
-   ```bash
-   cd ..
-   uv pip install -r requirements.txt
-   ```
+idle_videos/
+└── idle_avatar1.mp4      # 待机视频（可选）
+```
 
-6. **配置 API 密钥**
+> speaking_videos 目录中每个形象可放多个说话视频，系统每次回复时随机选取一个播放。
 
-   在 `app.py` 中配置以下 API 密钥：
-   ```python
-   # DeepSeek API (用于 AI 对话)
-   DEEPSEEK_API_KEY = "your-deepseek-api-key"
+### 5. 启动服务
 
-   # SiliconFlow TTS API (用于语音合成)
-   TTS_API_TOKEN = "your-siliconflow-api-token"
-   ```
+```bash
+python app.py
+```
 
-   > 建议将 API 密钥存储在环境变量中以提高安全性
+服务启动后访问：
 
-7. **启动服务**
-   ```bash
-   uv run app.py
-   ```
+| 地址 | 说明 |
+|------|------|
+| http://localhost:5000 | 首页（自动跳转） |
+| http://localhost:5000/home | 统一导航首页 |
+| http://localhost:5000/select | 选择数字人助手 |
+| http://localhost:5000/index | 主对话页面 |
+| http://localhost:5000/garden | 心理润园 |
 
-8. **访问应用**
+---
 
-   打开浏览器访问：http://localhost:5000
+## API 接口文档
 
-## 使用指南
+所有接口以 `http://localhost:5000/api` 为前缀。
 
-### 基本使用流程
+### 心理分析
 
-1. 打开应用后，系统会询问是否开启摄像头
-2. 点击「开启摄像头」按钮授权摄像头访问
-3. 点击「开启表情分析」启动实时情绪检测
-4. 在输入框中描述你的心理状态或问题
-5. 点击「发送」获取 AI 心理咨询建议
-6. 3D 数字人会根据检测到的情绪做出相应表情
-
-### API 接口
-
-| 端点 | 方法 | 描述 |
-|------|------|------|
-| `/api/analyze` | POST | 心理分析主接口 |
-| `/api/analyze_local` | POST | 本地模型分析接口 |
-| `/api/analyze_emotion` | POST | 表情识别接口 |
-| `/api/model/status` | GET | 模型状态查询 |
-| `/api/health` | GET | 健康检查 |
-| `/api/conversation/summary` | GET | 对话摘要 |
-| `/api/conversation/reset` | POST | 重置对话 |
-
-### 请求示例
-
-**心理分析请求：**
-```json
+```
 POST /api/analyze
+```
+
+请求体：
+```json
 {
-  "message": "最近学习压力很大，感觉很焦虑",
-  "detected_emotion": "sad"
+  "message": "我最近压力很大，睡不好觉",
+  "detected_emotion": "sad",
+  "avatar_id": "1",
+  "generate_video": true
 }
 ```
 
-**响应示例：**
+响应：
 ```json
 {
   "success": true,
   "response": "我理解你的感受...",
   "detected_emotion": "sad",
-  "model_source": "deepseek_api",
-  "timestamp": "2024-01-01T12:00:00"
+  "model_source": "local_psychology_model",
+  "audio_url": "/api/audio/tts_xxxxxxxx.mp3",
+  "video_url": "/static/speaking_videos/avatar1_talking.mp4",
+  "video_urls": ["/static/speaking_videos/avatar1_talking.mp4", "..."],
+  "video_generated": true
 }
 ```
 
-## 技术架构
-
-### 系统架构图
+### 情绪识别
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        前端 (index.html)                     │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │  Three.js   │  │   WebRTC    │  │    用户交互界面      │  │
-│  │  3D 数字人  │  │  摄像头捕获  │  │  输入/输出/状态     │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     后端 (Flask Server)                      │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │  DeepFace   │  │ DeepSeek    │  │   对话历史管理       │  │
-│  │  表情识别   │  │  API 调用   │  │   上下文维护        │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+POST /api/analyze_emotion
 ```
 
-### 数据流程
-
-```
-用户输入 (文字 + 摄像头图像)
-         │
-         ▼
-┌─────────────────┐
-│  前端捕获表情    │ ──► Base64 编码图像
-└─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│ /api/analyze_   │ ──► DeepFace 分析
-│    emotion      │ ──► 返回情绪分数
-└─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│  /api/analyze   │ ──► 结合文字 + 情绪
-└─────────────────┘ ──► DeepSeek API
-         │
-         ▼
-┌─────────────────┐
-│   AI 响应显示   │ ──► 3D 数字人动画
-└─────────────────┘
+请求体：
+```json
+{
+  "image": "data:image/jpeg;base64,..."
+}
 ```
 
-## 依赖说明
+响应：
+```json
+{
+  "success": true,
+  "dominant_emotion": "happy",
+  "emotion_scores": {
+    "happy": 85.2,
+    "neutral": 10.1,
+    "sad": 4.7
+  }
+}
+```
 
-### Python 依赖
+### 数字人管理
 
-| 包名 | 版本 | 用途 |
+| 方法 | 路径 | 说明 |
 |------|------|------|
-| flask | >=2.3.0 | Web 框架 |
-| flask-cors | >=4.0.0 | 跨域支持 |
-| requests | >=2.31.0 | HTTP 客户端 |
-| deepface | >=0.0.79 | 面部表情识别 |
-| opencv-python | >=4.8.0 | 图像处理 |
-| numpy | >=1.24.0 | 数值计算 |
-| tf-keras | >=2.20.1 | DeepFace 依赖 |
+| GET | `/api/get_avatars` | 获取全部可用形象列表 |
+| POST | `/api/set_avatar` | 设置当前使用的形象 |
+| POST | `/api/upload_avatar` | 上传自定义形象图片 |
+| GET | `/api/idle_videos?avatar_id=1` | 获取指定形象的待机视频 |
 
-### 前端依赖
+### 其他接口
 
-| 库名 | 版本 | 用途 |
+| 方法 | 路径 | 说明 |
 |------|------|------|
-| Three.js | r128 | 3D 图形渲染 |
-| WebRTC | 原生 | 摄像头访问 |
-
-### 可选依赖（本地模型）
-
-| 包名 | 用途 |
-|------|------|
-| torch | PyTorch 深度学习框架 |
-| transformers | Hugging Face 模型库 |
-| peft | 参数高效微调 |
-
-## 情绪识别说明
-
-系统支持识别以下 7 种情绪：
-
-| 情绪 | 英文 | 图标 | 描述 |
-|------|------|------|------|
-| 开心 | happy | 😊 | 积极愉快的情绪状态 |
-| 悲伤 | sad | 😢 | 低落、难过的情绪 |
-| 生气 | angry | 😠 | 愤怒、烦躁的情绪 |
-| 恐惧 | fear | 😨 | 紧张、害怕的情绪 |
-| 惊讶 | surprise | 😲 | 意外、震惊的情绪 |
-| 厌恶 | disgust | 🤢 | 反感、排斥的情绪 |
-| 平静 | neutral | 😐 | 中性、平稳的情绪 |
-
-## 配置选项
-
-### 环境变量
-
-```bash
-# DeepSeek API 配置
-export DEEPSEEK_API_KEY="your-api-key"
-
-# 服务器配置
-export FLASK_HOST="0.0.0.0"
-export FLASK_PORT="5000"
-export FLASK_DEBUG="true"
-```
-
-### 表情分析配置
-
-在 `app.py` 中可调整以下参数：
-
-```python
-# 表情分析间隔（毫秒）
-EMOTION_ANALYSIS_INTERVAL = 2000
-
-# DeepFace 检测后端
-DETECTOR_BACKEND = 'opencv'  # 可选: 'opencv', 'ssd', 'mtcnn', 'retinaface'
-```
-
-## 常见问题
-
-### Q: 摄像头无法启动？
-A: 请确保浏览器已授权摄像头访问权限，并检查是否有其他应用占用摄像头。
-
-### Q: 表情识别不准确？
-A: 请确保光线充足，面部正对摄像头，避免遮挡面部。
-
-### Q: API 调用失败？
-A: 请检查 DeepSeek API 密钥是否有效，网络连接是否正常。
-
-### Q: 本地模型如何使用？
-A: 运行 `integrated_server.py` 并确保已下载 Qwen1.5-0.5B 模型及训练好的适配器。
-
-## 贡献指南
-
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 本项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 提交 Pull Request
-
-## 许可证
-
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
-
-## 致谢
-
-- [DeepFace](https://github.com/serengil/deepface) - 面部表情识别
-- [DeepSeek](https://www.deepseek.com/) - AI 对话模型
-- [Three.js](https://threejs.org/) - 3D 图形库
-- [Flask](https://flask.palletsprojects.com/) - Web 框架
-
-## 联系方式
-
-如有问题或建议，请通过以下方式联系：
-
-- 提交 [Issue](https://github.com/your-username/srtp/issues)
-- 发送邮件至：your-email@example.com
+| GET | `/api/health` | 健康检查 |
+| GET | `/api/model/status` | 本地模型加载状态 |
+| GET | `/api/conversation/summary` | 对话摘要 |
+| POST | `/api/conversation/reset` | 重置对话历史 |
+| GET | `/api/debug` | 调试信息（开发用） |
 
 ---
 
-<p align="center">
-  <strong>用 AI 守护每一颗年轻的心</strong>
-</p>
+## 项目文件结构
+
+```
+xinqing/
+│
+├── app.py                      # Flask 主服务（后端全部逻辑）
+│
+├── templates/                  # HTML 页面
+│   ├── home.html               # 统一首页
+│   ├── select.html             # 助手选择页
+│   ├── index.html              # 主对话页
+│   └── garden.html             # 心理润园
+│
+├── static/
+│   ├── css/
+│   │   └── style.css           # 全局样式（已基本内联，保留兼容）
+│   ├── js/
+│   │   ├── api.js              # 后端 API 封装
+│   │   ├── main.js             # 主页面逻辑
+│   │   ├── select.js           # 选择页逻辑
+│   │   └── modules/
+│   │       ├── avatar.js       # 数字人控制器
+│   │       ├── camera.js       # 摄像头 & 情绪识别
+│   │       └── speech.js       # 语音输入管理
+│   └── speaking_videos/        # 说话视频资源
+│
+├── avatars/                    # 数字人头像图片
+├── idle_videos/                # 待机循环视频
+├── models/                     # 本地模型文件（不含于仓库）
+├── outputs/                    # LoRA 适配器权重（不含于仓库）
+├── audio_output/               # TTS 生成音频（运行时）
+├── uploads/                    # 用户上传形象（运行时）
+├── SadTalker/                  # SadTalker 子模块（可选）
+│
+└── README.md
+```
+
+---
+
+## 常见问题
+
+**Q: 启动时报 `ModuleNotFoundError`**
+运行 `pip install -r requirements.txt`，或根据错误信息单独安装缺失的包。某些包（如 `deepface`、`torch`）体积较大，首次安装需要较长时间。
+
+**Q: 情绪识别不可用 / `DeepFace` 报错**
+DeepFace 首次运行会自动下载预训练权重（约 500 MB），需要联网。若网络不稳定，可提前手动下载并放置到 `~/.deepface/weights/` 目录。
+
+**Q: 数字人嘴型不动 / 视频无法播放**
+检查 `static/speaking_videos/` 目录下是否有对应 `avatar{id}_talking*.mp4` 文件，文件名中需包含 `avatar1`（或对应编号）。视频格式需为 H.264 编码的 MP4。
+
+**Q: 语音输入按钮灰色不可用**
+浏览器语音识别需要在 `localhost` 或 HTTPS 环境下运行。若在局域网其他设备访问，需为服务配置 SSL 证书，或在浏览器设置中手动开启麦克风权限。
+
+**Q: 本地模型回复质量较差**
+Qwen1.5-0.5B 是 5 亿参数的轻量模型，在没有微调权重的情况下回复质量有限。若有微调后的 LoRA 权重，将其放置到 `outputs/psychology_trained_model/` 后重启服务即可生效。
+
+**Q: 如何增加更多说话视频**
+将新视频（MP4 格式）命名为 `avatar1_talking2.mp4`、`avatar1_talking3.mp4` 等，放入 `static/speaking_videos/` 目录。系统会自动扫描目录，每次回复时随机选取一个播放。
+
+---
+
+## 开发说明
+
+### 前端模块说明
+
+前端使用原生 ES Module，无需构建工具，直接由浏览器加载。各模块职责：
+
+- `api.js`：统一封装所有后端接口调用，修改后端地址只需改此文件的 `API_BASE_URL`
+- `avatar.js`：管理数字人的静态图 / 待机视频 / 说话视频三种状态切换
+- `camera.js`：摄像头启动、截帧、调用情绪识别接口
+- `speech.js`：封装 Web Speech API，处理语音识别的生命周期
+
+### 添加新数字人形象
+
+1. 将头像图片（建议 512×512，PNG）放入 `avatars/avatar4.png`
+2. 在 `app.py` 的 `get_available_avatars()` 函数中，将循环上限从 `range(1, 4)` 改为 `range(1, 5)`
+3. 准备对应的说话视频 `avatar4_talking.mp4` 放入 `static/speaking_videos/`
+
+### 修改模型参数
+
+在 `app.py` 顶部修改：
+```python
+LOCAL_MODEL_PATH    = "models/Qwen1.5-0.5B"      # 基础模型路径
+LOCAL_ADAPTER_PATH  = "outputs/psychology_trained_model"  # LoRA 适配器路径
+```
+
+生成参数可在 `generate_local_model_response()` 函数中调整：
+```python
+max_new_tokens     = 300    # 最大生成长度
+temperature        = 0.7    # 采样温度（越高越发散）
+top_p              = 0.9    # 核采样概率
+repetition_penalty = 1.1    # 重复惩罚
+```
+
+---
+
+## 依赖清单
+
+```
+flask
+flask-cors
+opencv-python
+numpy
+requests
+werkzeug
+torch
+transformers
+peft
+accelerate
+deepface
+edge-tts
+SpeechRecognition
+pydub
+```
+
+---
+
+## 版本历史
+
+| 版本 | 说明 |
+|------|------|
+| v1.0 | 基础对话功能，调用外部 API |
+| v2.0 | 集成本地 Qwen 模型，支持离线运行 |
+| v2.2 | 接入 DeepFace 情绪识别，新增摄像头功能 |
+| v2.3 | 支持数字人形象选择与用户自定义上传 |
+| v2.4 | 接入 Edge TTS + 预置说话视频随机播放，新增心晴首页与心理润园模块 |
+
+---
+
+## 许可证
+
+本项目为 SRTP 课题研究成果，仅供学术研究与学习交流使用，不得用于商业目的。
+
+---
+
+*如有问题，欢迎提 Issue 或联系项目组。*

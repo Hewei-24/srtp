@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>推荐书单 · 心晴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sage: #7a9e7e;
+    --sage-light: #b8d4bb;
+    --sage-dark: #4a6b4e;
+    --cream: #f8f4ee;
+    --warm-white: #fdfaf6;
+    --moss: #3d5c40;
+    --terracotta: #c17f5a;
+    --sky: #8ab8c8;
+    --gold: #c9a96e;
+    --lavender: #9b8fc8;
+    --rose: #c88fa0;
+    --text-dark: #2c3e2d;
+    --text-mid: #5a6b5c;
+    --text-light: #8a9b8c;
+    --glass: rgba(255,255,255,0.7);
+    --glass-border: rgba(255,255,255,0.85);
+    --shadow: 0 6px 32px rgba(61,92,64,0.1);
+    --radius: 22px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    min-height: 100vh;
+    background-color: #e8f0e4;
+    background-image:
+      radial-gradient(ellipse at 15% 0%, rgba(122,158,126,0.3) 0%, transparent 45%),
+      radial-gradient(ellipse at 85% 100%, rgba(138,184,200,0.2) 0%, transparent 45%);
+    color: var(--text-dark);
+  }
+
+  nav {
+    position: sticky; top: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 48px;
+    background: rgba(248,244,238,0.8);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(122,158,126,0.2);
+  }
+  .nav-logo {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 1.4rem; color: var(--moss);
+    display: flex; align-items: center; gap: 8px;
+    text-decoration: none;
+  }
+  .nav-right { display: flex; align-items: center; gap: 24px; }
+  .nav-link {
+    text-decoration: none; font-size: 0.88rem;
+    color: var(--text-mid); transition: color 0.2s;
+  }
+  .nav-link:hover { color: var(--moss); }
+  .nav-cta {
+    background: var(--sage); color: white;
+    border: none; border-radius: 50px;
+    padding: 9px 20px; font-size: 0.85rem;
+    cursor: pointer; text-decoration: none;
+    font-family: 'Noto Sans SC', sans-serif;
+    transition: background 0.2s;
+  }
+  .nav-cta:hover { background: var(--sage-dark); }
+
+  .container {
+    max-width: 1000px; margin: 0 auto;
+    padding: 40px 48px 80px;
+  }
+  @media (max-width: 768px) {
+    nav, .container { padding-left: 20px; padding-right: 20px; }
+  }
+
+  .header {
+    text-align: center; margin-bottom: 60px;
+  }
+  .header h1 {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+    color: var(--text-dark); letter-spacing: 0.06em;
+    margin-bottom: 16px;
+  }
+  .header p {
+    font-size: 1rem; color: var(--text-mid);
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 300; line-height: 1.8;
+    max-width: 600px; margin: 0 auto;
+  }
+
+  .books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+  }
+  .book-card {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: var(--shadow);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .book-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 48px rgba(61,92,64,0.16);
+  }
+  .book-icon {
+    font-size: 48px; margin-bottom: 16px; display: block;
+  }
+  .book-card h3 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1.1rem; font-weight: 600;
+    color: var(--text-dark); margin-bottom: 8px;
+  }
+  .book-card .author {
+    font-size: 0.85rem; color: var(--text-light);
+    margin-bottom: 12px;
+  }
+  .book-card p {
+    font-size: 0.88rem; color: var(--text-mid);
+    line-height: 1.75; margin-bottom: 16px;
+  }
+  .book-card .tags {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .book-tag {
+    font-size: 0.72rem; letter-spacing: 0.08em;
+    padding: 3px 10px; border-radius: 50px;
+    font-weight: 500;
+    background: rgba(122,158,126,0.15);
+    color: var(--sage-dark);
+  }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.9rem; font-weight: 500;
+    color: var(--sage-dark); text-decoration: none;
+    margin-top: 40px;
+    transition: gap 0.2s;
+  }
+  .back-link:hover { gap: 10px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/home">
+    <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+      <circle cx="14" cy="14" r="13" stroke="#3d5c40" stroke-width="1.5"/>
+      <path d="M14 22 C14 22 8 17 8 12 C8 8.5 10.7 7 14 7 C17.3 7 20 8.5 20 12 C20 17 14 22 14 22Z" fill="#7a9e7e"/>
+    </svg>
+    心晴
+  </a>
+  <div class="nav-right">
+    <a class="nav-link" href="/home">首页</a>
+    <a class="nav-link" href="/select">树洞智能体</a>
+    <a class="nav-cta" href="/select">开始倾诉</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="header">
+    <h1>📚 推荐书单</h1>
+    <p>这些书籍用温暖的语言讲述心理成长的故事，帮助你更好地了解自己、接纳自己，找到内心的平静与力量。</p>
+  </div>
+
+  <div class="books-grid">
+    <div class="book-card">
+      <span class="book-icon">📖</span>
+      <h3>被讨厌的勇气</h3>
+      <div class="author">岸见一郎、古贺史健</div>
+      <p>基于阿德勒心理学的经典著作，教你如何摆脱他人的期待，获得真正的自由和幸福。</p>
+      <div class="tags">
+        <span class="book-tag">自我成长</span>
+        <span class="book-tag">人际关系</span>
+      </div>
+    </div>
+
+    <div class="book-card">
+      <span class="book-icon">🐸</span>
+      <h3>蛤蟆先生去看心理医生</h3>
+      <div class="author">罗伯特·戴博德</div>
+      <p>通过生动的故事，帮助你了解自己的情绪模式，学会与自己和解，重新获得对生活的掌控感。</p>
+      <div class="tags">
+        <span class="book-tag">情绪管理</span>
+        <span class="book-tag">自我认知</span>
+      </div>
+    </div>
+
+    <div class="book-card">
+      <span class="book-icon">🧘</span>
+      <h3>正念：此刻是家</h3>
+      <div class="author">乔·卡巴金</div>
+      <p>正念减压疗法创始人的经典之作，教你如何通过正念练习活在当下，减少焦虑和压力。</p>
+      <div class="tags">
+        <span class="book-tag">正念</span>
+        <span class="book-tag">减压</span>
+      </div>
+    </div>
+
+    <div class="book-card">
+      <span class="book-icon">💪</span>
+      <h3>情绪智商2.0</h3>
+      <div class="author">特拉维斯·布拉德伯里、吉恩·格里夫斯</div>
+      <p>通过科学的方法，帮助你提升情绪智商，更好地理解和管理自己的情绪，建立良好的人际关系。</p>
+      <div class="tags">
+        <span class="book-tag">情绪管理</span>
+        <span class="book-tag">人际关系</span>
+      </div>
+    </div>
+
+    <div class="book-card">
+      <span class="book-icon">🌱</span>
+      <h3>终身成长</h3>
+      <div class="author">卡罗尔·德韦克</div>
+      <p>讲述固定型思维与成长型思维的区别，教你如何培养成长型思维，面对挑战和失败时保持积极的心态。</p>
+      <div class="tags">
+        <span class="book-tag">思维模式</span>
+        <span class="book-tag">自我成长</span>
+      </div>
+    </div>
+
+    <div class="book-card">
+      <span class="book-icon">❤️</span>
+      <h3>非暴力沟通</h3>
+      <div class="author">马歇尔·卢森堡</div>
+      <p>教会你如何通过观察、感受、需求和请求进行有效的沟通，建立深度的人际关系。</p>
+      <div class="tags">
+        <span class="book-tag">沟通技巧</span>
+        <span class="book-tag">人际关系</span>
+      </div>
+    </div>
+  </div>
+
+  <a class="back-link" href="/garden">← 返回心理润园</a>
+</div>
+
+</body>
+</html>

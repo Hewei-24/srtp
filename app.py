@@ -1,18 +1,18 @@
 """
-大学生心理分析数字人代理 - 主服务器（本地模型版）
+心晴大学生心理健康辅助系统V1.0 - 主服务器（本地模型版）
 ==============================================
 
 本模块提供基于 Flask 的 Web 服务，集成以下功能：
 1. 本地心理大模型心理咨询服务
-2. DeepFace 面部表情识别
+2. 可切换的面部表情识别（DeepFace / 微表情模型）
 3. 对话历史管理
 4. RESTful API 接口
 5. 数字人形象选择功能
 6. 语音输入识别功能
 7. 用户上传自定义数字人形象功能
 
-作者: SRTP 项目组
-版本: 2.4
+作者: 上海电力大学
+版本: 1.0
 """
 
 import os
@@ -30,6 +30,7 @@ import shutil
 import threading
 import json
 import asyncio
+import hashlib
 from typing import Dict, Any, Optional
 
 import cv2
@@ -38,6 +39,8 @@ import requests
 from flask import Flask, request, jsonify, send_from_directory, redirect, url_for, render_template
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+
+from emotion_backends import MicroExpressionBackend
 
 # ==================== 本地模型相关导入 ====================
 try:
@@ -153,6 +156,32 @@ DEFAULT_EMOTION_SCORES = {
     'angry': 0.0, 'disgust': 0.0, 'fear': 0.0,
     'happy': 0.0, 'sad': 0.0, 'surprise': 0.0, 'neutral': 100.0
 }
+
+# 表情识别后端配置
+EMOTION_RECOGNITION_BACKEND = os.getenv("EMOTION_RECOGNITION_BACKEND", "microexp").strip().lower()
+MICROEXP_PROJECT_ROOT = os.getenv("MICROEXP_PROJECT_ROOT", r"D:\Study\srtp\表情识别")
+MICROEXP_MODE = os.getenv("MICROEXP_MODE", "regular").strip().lower()
+MICROEXP_DEVICE = os.getenv("MICROEXP_DEVICE", "auto").strip().lower()
+MICROEXP_SESSION_TTL_SECONDS = int(os.getenv("MICROEXP_SESSION_TTL_SECONDS", "300"))
+MICROEXP_REGULAR_CHECKPOINT = os.getenv(
+    "MICROEXP_REGULAR_CHECKPOINT",
+    "artifacts/checkpoints/best_model.pt"
+)
+MICROEXP_STRICT_CHECKPOINT = os.getenv(
+    "MICROEXP_STRICT_CHECKPOINT",
+    "artifacts/strict_checkpoints/best_model.pt"
+)
+
+microexp_backend = MicroExpressionBackend(
+    default_emotion_scores=DEFAULT_EMOTION_SCORES,
+    project_root=MICROEXP_PROJECT_ROOT,
+    mode=MICROEXP_MODE,
+    device=MICROEXP_DEVICE,
+    session_ttl_seconds=MICROEXP_SESSION_TTL_SECONDS,
+    regular_checkpoint=MICROEXP_REGULAR_CHECKPOINT,
+    strict_checkpoint=MICROEXP_STRICT_CHECKPOINT,
+    logger=logger,
+)
 
 # 对话历史（全局变量）
 conversation_history: list = []
@@ -547,7 +576,40 @@ class PsychologicalAgent:
 
 
 # ==================== 表情识别模块 ====================
-def analyze_emotion_from_image(image_data: str) -> Dict[str, Any]:
+def build_emotion_session_id() -> str:
+    """为未显式传 session_id 的前端请求生成稳定会话 ID。"""
+    fingerprint = "|".join([
+        request.remote_addr or "unknown",
+        request.headers.get("User-Agent", ""),
+        request.headers.get("Origin", ""),
+    ])
+    return hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:24]
+
+
+def get_emotion_backend_status() -> Dict[str, Any]:
+    """汇总当前表情识别后端的可用性信息。"""
+    microexp_available = microexp_backend.available
+    fallback_backend = None
+
+    if EMOTION_RECOGNITION_BACKEND == "microexp":
+        emotion_backend_available = microexp_available or DEEPFACE_AVAILABLE
+        if not microexp_available and DEEPFACE_AVAILABLE:
+            fallback_backend = "deepface"
+    else:
+        emotion_backend_available = DEEPFACE_AVAILABLE
+
+    return {
+        "active_backend": EMOTION_RECOGNITION_BACKEND,
+        "active_mode": MICROEXP_MODE if EMOTION_RECOGNITION_BACKEND == "microexp" else "single_frame",
+        "emotion_backend_available": emotion_backend_available,
+        "fallback_backend": fallback_backend,
+        "deepface_available": DEEPFACE_AVAILABLE,
+        "microexp_available": microexp_available,
+        "microexp_error": microexp_backend.last_error,
+    }
+
+
+def analyze_emotion_with_deepface(image_data: str) -> Dict[str, Any]:
     """
     从 Base64 编码的图像中分析面部表情
 
@@ -563,7 +625,8 @@ def analyze_emotion_from_image(image_data: str) -> Dict[str, Any]:
         return {
             "dominant_emotion": "neutral",
             "emotion_scores": DEFAULT_EMOTION_SCORES.copy(),
-            "face_detected": False
+            "face_detected": False,
+            "backend": "deepface",
         }
 
     logger.info("开始 DeepFace 表情分析...")
@@ -582,7 +645,8 @@ def analyze_emotion_from_image(image_data: str) -> Dict[str, Any]:
             return {
                 "dominant_emotion": "neutral",
                 "emotion_scores": DEFAULT_EMOTION_SCORES.copy(),
-                "face_detected": False
+                "face_detected": False,
+                "backend": "deepface",
             }
 
         # 使用 DeepFace 分析表情
@@ -599,7 +663,8 @@ def analyze_emotion_from_image(image_data: str) -> Dict[str, Any]:
             return {
                 "dominant_emotion": "neutral",
                 "emotion_scores": DEFAULT_EMOTION_SCORES.copy(),
-                "face_detected": False
+                "face_detected": False,
+                "backend": "deepface",
             }
 
         # 提取结果
@@ -631,7 +696,8 @@ def analyze_emotion_from_image(image_data: str) -> Dict[str, Any]:
         return {
             "dominant_emotion": dominant_emotion,
             "emotion_scores": converted_scores,
-            "face_detected": face_detected
+            "face_detected": face_detected,
+            "backend": "deepface",
         }
 
     except Exception as e:
@@ -639,8 +705,38 @@ def analyze_emotion_from_image(image_data: str) -> Dict[str, Any]:
         return {
             "dominant_emotion": "neutral",
             "emotion_scores": DEFAULT_EMOTION_SCORES.copy(),
-            "face_detected": False
+            "face_detected": False,
+            "backend": "deepface",
         }
+
+
+def analyze_emotion_from_image(
+    image_data: str,
+    session_id: Optional[str] = None,
+    motion_threshold: Optional[float] = None,
+    confidence_threshold: Optional[float] = None,
+    analysis_stride: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    统一的表情识别入口。
+
+    默认优先走微表情识别项目中的模型逻辑，并保留 DeepFace 旧逻辑用于随时切换或回退。
+    """
+    if EMOTION_RECOGNITION_BACKEND == "microexp":
+        try:
+            return microexp_backend.analyze_image(
+                image_data=image_data,
+                session_id=session_id or "default",
+                motion_threshold=motion_threshold,
+                confidence_threshold=confidence_threshold,
+                analysis_stride=analysis_stride,
+            )
+        except Exception as e:
+            logger.warning(f"微表情识别失败，回退到 DeepFace: {str(e)[:200]}")
+    elif EMOTION_RECOGNITION_BACKEND != "deepface":
+        logger.warning(f"未知表情识别后端: {EMOTION_RECOGNITION_BACKEND}，已回退到 DeepFace")
+
+    return analyze_emotion_with_deepface(image_data)
 
 
 def generate_fallback_response(user_input: str, emotion: str) -> Dict[str, Any]:
@@ -886,16 +982,22 @@ if TORCH_AVAILABLE:
 
 @app.route('/')
 def root_redirect():
-    return redirect('/select')
+    return redirect('/home')
+
+@app.route('/home')
+def home_page():
+    return render_template('home.html')
+
+@app.route('/garden')
+def garden_page():
+    return render_template('garden.html')
 
 @app.route('/index')
 def main_page():
-    # 使用 render_template
     return render_template('index.html')
 
 @app.route('/select')
 def select_page():
-    # 使用 render_template
     return render_template('select.html')
 
 
@@ -1218,39 +1320,32 @@ def analyze():
                 speaking_videos_dir = os.path.join(app.static_folder, "speaking_videos")
                 video_extensions = ('.mp4', '.webm', '.mov', '.avi')
                 
-                # 扫描目录，收集所有属于当前 avatar 的说话视频
                 avatar_videos = []
                 fallback_videos = []
                 
                 if os.path.exists(speaking_videos_dir):
                     for fname in os.listdir(speaking_videos_dir):
                         if fname.lower().endswith(video_extensions):
-                            fpath = os.path.join(speaking_videos_dir, fname)
                             url = f"/static/speaking_videos/{fname}"
-                            # 优先匹配当前 avatar 的视频（文件名含 avatar_id）
                             if f"avatar{avatar_id}" in fname or f"avatar_{avatar_id}" in fname:
                                 avatar_videos.append(url)
                             else:
                                 fallback_videos.append(url)
                 
-                # 如果没有匹配当前 avatar 的视频，使用所有可用视频作为候选
                 candidate_videos = avatar_videos if avatar_videos else fallback_videos
                 
                 if candidate_videos:
-                    # 返回候选列表，前端随机选一个播放
-                    video_url = candidate_videos[0]  # 保留向后兼容字段
+                    video_url = candidate_videos[0]
                     video_urls = candidate_videos
-                    logger.info(f"找到 {len(candidate_videos)} 个可用说话视频（avatar_id={avatar_id}）: {candidate_videos}")
+                    logger.info(f"找到 {len(candidate_videos)} 个可用说话视频（avatar_id={avatar_id}）")
                 else:
-                    # 兜底：尝试默认文件名
-                    default_filename = "avatar1_talking.mp4"
-                    video_url = f"/static/speaking_videos/{default_filename}"
+                    video_url = f"/static/speaking_videos/avatar1_talking.mp4"
                     video_urls = [video_url]
-                    logger.warning(f"未找到任何说话视频，使用兜底路径: {default_filename}")
+                    logger.warning(f"未找到任何说话视频，使用兜底路径")
                 
                 result["audio_url"] = audio_url
-                result["video_url"] = video_url        # 向后兼容：单个 URL
-                result["video_urls"] = video_urls      # 新增：完整候选列表，供前端随机选
+                result["video_url"] = video_url
+                result["video_urls"] = video_urls
                 result["video_generated"] = True
                 result["is_preset"] = True
                 result["avatar_id"] = avatar_id
@@ -1375,16 +1470,35 @@ def analyze_emotion():
         if not data or 'image' not in data:
             return jsonify({"success": False, "error": "没有提供图片数据"}), 400
 
-        logger.info("收到表情分析请求")
+        emotion_session_id = (
+            data.get('session_id')
+            or data.get('emotion_session_id')
+            or build_emotion_session_id()
+        )
+
+        logger.info(
+            f"收到表情分析请求 - backend={EMOTION_RECOGNITION_BACKEND}, mode={MICROEXP_MODE}, session={emotion_session_id}"
+        )
 
         # 分析表情
-        result = analyze_emotion_from_image(data['image'])
+        result = analyze_emotion_from_image(
+            data['image'],
+            session_id=emotion_session_id,
+            motion_threshold=data.get('motion_threshold'),
+            confidence_threshold=data.get('confidence_threshold'),
+            analysis_stride=data.get('analysis_stride'),
+        )
 
         return jsonify({
             "success": True,
             "dominant_emotion": result["dominant_emotion"],
             "emotion_scores": result["emotion_scores"],
             "face_detected": result["face_detected"],
+            "emotion_backend": result.get("backend", EMOTION_RECOGNITION_BACKEND),
+            "emotion_backend_mode": result.get("backend_mode", MICROEXP_MODE),
+            "confidence": result.get("confidence", 0.0),
+            "motion_score": result.get("motion_score", 0.0),
+            "event_active": result.get("event_active", False),
             "timestamp": datetime.datetime.now().isoformat()
         })
 
@@ -1407,11 +1521,18 @@ def model_status():
     Returns:
         JSON 格式的模型状态信息
     """
+    emotion_backend = get_emotion_backend_status()
+
     return jsonify({
         "local_model_loaded": MODEL_LOADED,
         "torch_available": TORCH_AVAILABLE,
         "model_loading": TORCH_AVAILABLE and not MODEL_LOADED,
         "deepface_available": DEEPFACE_AVAILABLE,
+        "microexp_available": emotion_backend["microexp_available"],
+        "emotion_backend": emotion_backend["active_backend"],
+        "emotion_backend_mode": emotion_backend["active_mode"],
+        "emotion_backend_available": emotion_backend["emotion_backend_available"],
+        "microexp_error": emotion_backend["microexp_error"],
         "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
         "edge_tts_available": EDGE_TTS_AVAILABLE,
         "timestamp": datetime.datetime.now().isoformat()
@@ -1426,6 +1547,8 @@ def api_status():
     Returns:
         JSON 格式的 API 状态信息
     """
+    emotion_backend = get_emotion_backend_status()
+
     model_status_info = {
         "local_model_loaded": MODEL_LOADED,
         "torch_available": TORCH_AVAILABLE,
@@ -1436,6 +1559,11 @@ def api_status():
         "status": "healthy" if (MODEL_LOADED or not TORCH_AVAILABLE) else "loading",
         "model_status": model_status_info,
         "deepface_available": DEEPFACE_AVAILABLE,
+        "microexp_available": emotion_backend["microexp_available"],
+        "emotion_backend": emotion_backend["active_backend"],
+        "emotion_backend_mode": emotion_backend["active_mode"],
+        "emotion_backend_available": emotion_backend["emotion_backend_available"],
+        "microexp_error": emotion_backend["microexp_error"],
         "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
         "edge_tts_available": EDGE_TTS_AVAILABLE,
         "timestamp": datetime.datetime.now().isoformat()
@@ -1450,15 +1578,21 @@ def health_check():
     Returns:
         JSON 格式的服务健康状态
     """
+    emotion_backend = get_emotion_backend_status()
+
     return jsonify({
         "status": "healthy",
-        "service": "大学生心理分析数字人代理（本地模型版）",
-        "version": "2.4",
+        "service": "心晴大学生心理健康辅助系统V1.0（本地模型版）",
+        "version": "1.0",
         "timestamp": datetime.datetime.now().isoformat(),
+        "emotion_backend": emotion_backend["active_backend"],
+        "emotion_backend_mode": emotion_backend["active_mode"],
         "features": {
             "local_psychological_analysis": MODEL_LOADED,
             "fallback_system": True,
-            "emotion_recognition": DEEPFACE_AVAILABLE,
+            "emotion_recognition": emotion_backend["emotion_backend_available"],
+            "deepface_available": DEEPFACE_AVAILABLE,
+            "microexp_available": emotion_backend["microexp_available"],
             "real_time_camera": True,
             "avatar_selection": True,
             "avatar_upload": True,
@@ -1628,10 +1762,14 @@ def debug_info():
     Returns:
         JSON 格式的调试信息
     """
+    emotion_backend = get_emotion_backend_status()
+
     return jsonify({
         "routes": [str(rule) for rule in app.url_map.iter_rules()],
         "conversation_length": len(conversation_history),
         "deepface_available": DEEPFACE_AVAILABLE,
+        "microexp_available": emotion_backend["microexp_available"],
+        "emotion_backend": emotion_backend["active_backend"],
         "speech_recognition_available": SPEECH_RECOGNITION_AVAILABLE,
         "torch_available": TORCH_AVAILABLE,
         "local_model_loaded": MODEL_LOADED,
@@ -1651,7 +1789,7 @@ def favicon():
 if __name__ == '__main__':
     # 打印启动信息
     print("=" * 60)
-    print("大学生心理分析数字人代理 v2.4（本地模型版）")
+    print("心晴大学生心理健康辅助系统V1.0")
     print("=" * 60)
     print(f"📱 服务地址: http://localhost:5000")
     print(f"👤 形象选择: http://localhost:5000/select")

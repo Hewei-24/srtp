@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心理健康 App · 心晴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sage: #7a9e7e;
+    --sage-light: #b8d4bb;
+    --sage-dark: #4a6b4e;
+    --cream: #f8f4ee;
+    --warm-white: #fdfaf6;
+    --moss: #3d5c40;
+    --terracotta: #c17f5a;
+    --sky: #8ab8c8;
+    --gold: #c9a96e;
+    --lavender: #9b8fc8;
+    --rose: #c88fa0;
+    --text-dark: #2c3e2d;
+    --text-mid: #5a6b5c;
+    --text-light: #8a9b8c;
+    --glass: rgba(255,255,255,0.7);
+    --glass-border: rgba(255,255,255,0.85);
+    --shadow: 0 6px 32px rgba(61,92,64,0.1);
+    --radius: 22px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    min-height: 100vh;
+    background-color: #e8f0e4;
+    background-image:
+      radial-gradient(ellipse at 15% 0%, rgba(122,158,126,0.3) 0%, transparent 45%),
+      radial-gradient(ellipse at 85% 100%, rgba(138,184,200,0.2) 0%, transparent 45%);
+    color: var(--text-dark);
+  }
+
+  nav {
+    position: sticky; top: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 48px;
+    background: rgba(248,244,238,0.8);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(122,158,126,0.2);
+  }
+  .nav-logo {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 1.4rem; color: var(--moss);
+    display: flex; align-items: center; gap: 8px;
+    text-decoration: none;
+  }
+  .nav-right { display: flex; align-items: center; gap: 24px; }
+  .nav-link {
+    text-decoration: none; font-size: 0.88rem;
+    color: var(--text-mid); transition: color 0.2s;
+  }
+  .nav-link:hover { color: var(--moss); }
+  .nav-cta {
+    background: var(--sage); color: white;
+    border: none; border-radius: 50px;
+    padding: 9px 20px; font-size: 0.85rem;
+    cursor: pointer; text-decoration: none;
+    font-family: 'Noto Sans SC', sans-serif;
+    transition: background 0.2s;
+  }
+  .nav-cta:hover { background: var(--sage-dark); }
+
+  .container {
+    max-width: 1000px; margin: 0 auto;
+    padding: 40px 48px 80px;
+  }
+  @media (max-width: 768px) {
+    nav, .container { padding-left: 20px; padding-right: 20px; }
+  }
+
+  .header {
+    text-align: center; margin-bottom: 60px;
+  }
+  .header h1 {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+    color: var(--text-dark); letter-spacing: 0.06em;
+    margin-bottom: 16px;
+  }
+  .header p {
+    font-size: 1rem; color: var(--text-mid);
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 300; line-height: 1.8;
+    max-width: 600px; margin: 0 auto;
+  }
+
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+  }
+  .app-card {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: var(--shadow);
+    transition: transform 0.3s, box-shadow 0.3s;
+    text-align: center;
+  }
+  .app-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 48px rgba(61,92,64,0.16);
+  }
+  .app-icon {
+    width: 80px; height: 80px;
+    border-radius: 20px;
+    background: var(--sage-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 16px;
+  }
+  .app-card h3 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1.1rem; font-weight: 600;
+    color: var(--text-dark); margin-bottom: 8px;
+  }
+  .app-card .category {
+    font-size: 0.85rem; color: var(--text-light);
+    margin-bottom: 12px;
+  }
+  .app-card p {
+    font-size: 0.88rem; color: var(--text-mid);
+    line-height: 1.75; margin-bottom: 16px;
+  }
+  .app-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.85rem; font-weight: 500;
+    color: var(--sage-dark); text-decoration: none;
+    transition: gap 0.2s;
+  }
+  .app-link:hover { gap: 10px; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.9rem; font-weight: 500;
+    color: var(--sage-dark); text-decoration: none;
+    margin-top: 40px;
+    transition: gap 0.2s;
+  }
+  .back-link:hover { gap: 10px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/home">
+    <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+      <circle cx="14" cy="14" r="13" stroke="#3d5c40" stroke-width="1.5"/>
+      <path d="M14 22 C14 22 8 17 8 12 C8 8.5 10.7 7 14 7 C17.3 7 20 8.5 20 12 C20 17 14 22 14 22Z" fill="#7a9e7e"/>
+    </svg>
+    心晴
+  </a>
+  <div class="nav-right">
+    <a class="nav-link" href="/home">首页</a>
+    <a class="nav-link" href="/select">树洞智能体</a>
+    <a class="nav-cta" href="/select">开始倾诉</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="header">
+    <h1>📱 心理健康 App</h1>
+    <p>精选国内外优质心理健康应用，涵盖正念冥想、情绪管理、运动减压等多个方面，帮助你更好地照顾自己的心理健康。</p>
+  </div>
+
+  <div class="app-grid">
+    <div class="app-card">
+      <div class="app-icon" style="background: rgba(155,143,200,0.2);">🧘</div>
+      <h3>Headspace</h3>
+      <div class="category">正念冥想</div>
+      <p>提供各种冥想引导和睡眠音乐，帮助你减轻压力、改善睡眠质量，适合初学者和有经验的冥想者。</p>
+      <a class="app-link" href="#">了解更多 →</a>
+    </div>
+
+    <div class="app-card">
+      <div class="app-icon" style="background: rgba(138,184,200,0.2);">💬</div>
+      <h3>Woebot</h3>
+      <div class="category">情绪日记</div>
+      <p>基于认知行为疗法的聊天机器人，帮助你识别和挑战负面思维模式，记录和管理情绪变化。</p>
+      <a class="app-link" href="#">了解更多 →</a>
+    </div>
+
+    <div class="app-card">
+      <div class="app-icon" style="background: rgba(201,169,110,0.2);">🏃</div>
+      <h3>Keep</h3>
+      <div class="category">运动减压</div>
+      <p>提供各种运动课程，包括瑜伽、有氧、力量训练等，运动是改善心情的有效方法。</p>
+      <a class="app-link" href="#">了解更多 →</a>
+    </div>
+
+    <div class="app-card">
+      <div class="app-icon" style="background: rgba(200,143,160,0.2);">📓</div>
+      <h3>Moodnotes</h3>
+      <div class="category">情绪追踪</div>
+      <p>通过日记和情绪追踪，帮助你了解自己的情绪模式，识别触发因素，发展健康的应对策略。</p>
+      <a class="app-link" href="#">了解更多 →</a>
+    </div>
+
+    <div class="app-card">
+      <div class="app-icon" style="background: rgba(122,158,126,0.2);">🌙</div>
+      <h3>Calm</h3>
+      <div class="category">睡眠改善</div>
+      <p>提供睡眠故事、冥想和放松音乐，帮助你缓解焦虑，改善睡眠质量，获得更好的休息。</p>
+      <a class="app-link" href="#">了解更多 →</a>
+    </div>
+
+    <div class="app-card">
+      <div class="app-icon" style="background: rgba(193,127,90,0.2);">🎯</div>
+      <h3>Forest</h3>
+      <div class="category">专注管理</div>
+      <p>通过种植虚拟树木来帮助你保持专注，减少手机使用时间，提高学习和工作效率。</p>
+      <a class="app-link" href="#">了解更多 →</a>
+    </div>
+  </div>
+
+  <a class="back-link" href="/garden">← 返回心理润园</a>
+</div>
+
+</body>
+</html>

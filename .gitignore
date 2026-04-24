@@ -1,0 +1,6 @@
+/.env
+/__pycache__/
+*.pyc
+/audio_output/
+/speech_input/
+/uploads/
